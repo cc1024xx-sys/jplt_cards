@@ -1,0 +1,370 @@
+import { useEffect, useState } from 'react'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { getAllDecks, getCard, saveCard } from '../lib/db'
+import { generateId } from '../lib/id'
+import {
+  CARD_TYPE_LABELS,
+  createDefaultReview,
+  type Card,
+  type CardType,
+  type CorpusCard,
+  type CorpusPhrase,
+  type CorpusWord,
+  type Deck,
+  type GrammarCard,
+  type VocabularyCard,
+} from '../lib/types'
+
+export function CardForm() {
+  const { cardId } = useParams<{ cardId: string }>()
+  const [searchParams] = useSearchParams()
+  const presetDeckId = searchParams.get('deckId')
+  const navigate = useNavigate()
+  const isEdit = Boolean(cardId)
+
+  const [decks, setDecks] = useState<Deck[]>([])
+  const [deckId, setDeckId] = useState(presetDeckId ?? '')
+  const [cardType, setCardType] = useState<CardType>('vocabulary')
+  const [loading, setLoading] = useState(isEdit)
+
+  // Vocabulary
+  const [meaningZh, setMeaningZh] = useState('')
+  const [hint, setHint] = useState('')
+  const [expressionJa, setExpressionJa] = useState('')
+  const [reading, setReading] = useState('')
+  const [vocabScenarios, setVocabScenarios] = useState('')
+  const [vocabExamples, setVocabExamples] = useState('')
+
+  // Grammar
+  const [pattern, setPattern] = useState('')
+  const [grammarMeaning, setGrammarMeaning] = useState('')
+  const [grammarScenarios, setGrammarScenarios] = useState('')
+  const [grammarExamples, setGrammarExamples] = useState('')
+
+  // Corpus
+  const [scenario, setScenario] = useState('')
+  const [corpusWords, setCorpusWords] = useState('')
+  const [corpusPhrases, setCorpusPhrases] = useState('')
+
+  const [tags, setTags] = useState('')
+
+  useEffect(() => {
+    getAllDecks().then((list) => {
+      setDecks(list)
+      if (!deckId && list.length > 0) setDeckId(list[0].id)
+    })
+  }, [deckId])
+
+  useEffect(() => {
+    if (!cardId) return
+    getCard(cardId).then((card) => {
+      if (!card) {
+        navigate('/decks')
+        return
+      }
+      setDeckId(card.deckId)
+      setCardType(card.type)
+      setTags(card.tags.join(', '))
+      if (card.type === 'vocabulary') {
+        setMeaningZh(card.front.meaningZh)
+        setHint(card.front.hint ?? '')
+        setExpressionJa(card.back.expressionJa)
+        setReading(card.back.reading ?? '')
+        setVocabScenarios(card.back.scenarios.join('\n'))
+        setVocabExamples(
+          (card.back.examples ?? [])
+            .map((e) => `${e.ja}|${e.zh}`)
+            .join('\n'),
+        )
+      } else if (card.type === 'grammar') {
+        setPattern(card.front.pattern)
+        setGrammarMeaning(card.back.meaningZh)
+        setGrammarScenarios(card.back.scenarios.join('\n'))
+        setGrammarExamples(
+          card.back.examples.map((e) => `${e.ja}|${e.zh}`).join('\n'),
+        )
+      } else {
+        setScenario(card.front.scenario)
+        setCorpusWords(
+          card.back.words.map((w) => `${w.ja}|${w.zh}|${w.reading ?? ''}`).join('\n'),
+        )
+        setCorpusPhrases(
+          card.back.phrases
+            .map((p) => `${p.ja}|${p.zh}|${p.note ?? ''}`)
+            .join('\n'),
+        )
+      }
+      setLoading(false)
+    })
+  }, [cardId, navigate])
+
+  useEffect(() => {
+    if (isEdit || !deckId) return
+    const deck = decks.find((d) => d.id === deckId)
+    if (deck) setCardType(deck.cardType)
+  }, [deckId, decks, isEdit])
+
+  const parseLines = (text: string) =>
+    text
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean)
+
+  const parseExamples = (text: string) =>
+    parseLines(text)
+      .map((line) => {
+        const [ja, zh] = line.split('|').map((s) => s.trim())
+        return ja && zh ? { ja, zh } : null
+      })
+      .filter((x): x is { ja: string; zh: string } => x !== null)
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!deckId) {
+      alert('请先创建并选择牌组')
+      return
+    }
+
+    const now = new Date().toISOString()
+    const tagList = tags
+      .split(/[,，]/)
+      .map((t) => t.trim())
+      .filter(Boolean)
+
+    let card: Card
+    const id = cardId ?? generateId()
+    const existing = cardId ? await getCard(cardId) : null
+    const review = existing?.review ?? createDefaultReview()
+    const createdAt = existing?.createdAt ?? now
+
+    if (cardType === 'vocabulary') {
+      card = {
+        id,
+        deckId,
+        type: 'vocabulary',
+        tags: tagList,
+        createdAt,
+        updatedAt: now,
+        review,
+        front: { meaningZh: meaningZh.trim(), hint: hint.trim() || undefined },
+        back: {
+          expressionJa: expressionJa.trim(),
+          reading: reading.trim() || undefined,
+          scenarios: parseLines(vocabScenarios),
+          examples: parseExamples(vocabExamples),
+        },
+      } satisfies VocabularyCard
+    } else if (cardType === 'grammar') {
+      card = {
+        id,
+        deckId,
+        type: 'grammar',
+        tags: tagList,
+        createdAt,
+        updatedAt: now,
+        review,
+        front: { pattern: pattern.trim() },
+        back: {
+          meaningZh: grammarMeaning.trim(),
+          scenarios: parseLines(grammarScenarios),
+          examples: parseExamples(grammarExamples),
+        },
+      } satisfies GrammarCard
+    } else {
+      const words: CorpusWord[] = []
+      for (const line of parseLines(corpusWords)) {
+        const [ja, zh, r] = line.split('|').map((s) => s.trim())
+        if (ja && zh) words.push({ ja, zh, reading: r || undefined })
+      }
+
+      const phrases: CorpusPhrase[] = []
+      for (const line of parseLines(corpusPhrases)) {
+        const [ja, zh, note] = line.split('|').map((s) => s.trim())
+        if (ja && zh) phrases.push({ ja, zh, note: note || undefined })
+      }
+
+      card = {
+        id,
+        deckId,
+        type: 'corpus',
+        tags: tagList,
+        createdAt,
+        updatedAt: now,
+        review,
+        front: { scenario: scenario.trim() },
+        back: { words, phrases },
+      } satisfies CorpusCard
+    }
+
+    await saveCard(card)
+    navigate(deckId ? `/decks/${deckId}` : '/decks')
+  }
+
+  if (loading) return <p className="text-center text-sumi-muted">加载中…</p>
+
+  const filteredDecks = decks.filter((d) => d.cardType === cardType || !isEdit)
+
+  return (
+    <div>
+      <h1 className="mb-4 text-xl font-medium">{isEdit ? '编辑闪卡' : '新建闪卡'}</h1>
+
+      {decks.length === 0 ? (
+        <p className="text-sumi-muted">
+          请先{' '}
+          <Link to="/decks/new" className="text-indigo-ja-dark">
+            创建牌组
+          </Link>
+        </p>
+      ) : (
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          {!isEdit && (
+            <label className="flex flex-col gap-1">
+              <span className="text-sm text-sumi-muted">类型</span>
+              <select
+                value={cardType}
+                onChange={(e) => {
+                  const t = e.target.value as CardType
+                  setCardType(t)
+                  const match = decks.find((d) => d.cardType === t)
+                  if (match) setDeckId(match.id)
+                }}
+                className="rounded-lg border border-card-border bg-white px-3 py-2"
+              >
+                {(Object.keys(CARD_TYPE_LABELS) as CardType[]).map((t) => (
+                  <option key={t} value={t}>
+                    {CARD_TYPE_LABELS[t]}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+
+          <label className="flex flex-col gap-1">
+            <span className="text-sm text-sumi-muted">牌组</span>
+            <select
+              value={deckId}
+              onChange={(e) => setDeckId(e.target.value)}
+              className="rounded-lg border border-card-border bg-white px-3 py-2"
+              required
+            >
+              {(isEdit ? decks : filteredDecks.length ? filteredDecks : decks).map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}（{CARD_TYPE_LABELS[d.cardType]}）
+                </option>
+              ))}
+            </select>
+          </label>
+
+          {cardType === 'vocabulary' && (
+            <>
+              <Field label="中文释义（正面）" value={meaningZh} onChange={setMeaningZh} required />
+              <Field label="提示（可选）" value={hint} onChange={setHint} />
+              <Field label="日语表达（背面）" value={expressionJa} onChange={setExpressionJa} required />
+              <Field label="读音（可选）" value={reading} onChange={setReading} />
+              <TextArea
+                label="使用场景（每行一条）"
+                value={vocabScenarios}
+                onChange={setVocabScenarios}
+              />
+              <TextArea
+                label="例句（每行：日语|中文）"
+                value={vocabExamples}
+                onChange={setVocabExamples}
+                placeholder="お会計お願いします|请结账"
+              />
+            </>
+          )}
+
+          {cardType === 'grammar' && (
+            <>
+              <Field label="核心句式（正面）" value={pattern} onChange={setPattern} required />
+              <Field label="意思（背面）" value={grammarMeaning} onChange={setGrammarMeaning} required />
+              <TextArea label="使用场景" value={grammarScenarios} onChange={setGrammarScenarios} />
+              <TextArea
+                label="例句（每行：日语|中文）"
+                value={grammarExamples}
+                onChange={setGrammarExamples}
+              />
+            </>
+          )}
+
+          {cardType === 'corpus' && (
+            <>
+              <Field label="口语场景（正面）" value={scenario} onChange={setScenario} required />
+              <TextArea
+                label="常用单词（每行：日语|中文|读音可选）"
+                value={corpusWords}
+                onChange={setCorpusWords}
+                placeholder="コーヒー|咖啡"
+              />
+              <TextArea
+                label="常用句式（每行：日语|中文|备注可选）"
+                value={corpusPhrases}
+                onChange={setCorpusPhrases}
+                placeholder="これください|请给我这个"
+              />
+            </>
+          )}
+
+          <Field label="标签（逗号分隔，可选）" value={tags} onChange={setTags} />
+
+          <button
+            type="submit"
+            className="rounded-xl bg-indigo-ja-dark py-3 text-white hover:bg-indigo-ja"
+          >
+            {isEdit ? '保存' : '创建'}
+          </button>
+        </form>
+      )}
+    </div>
+  )
+}
+
+function Field({
+  label,
+  value,
+  onChange,
+  required,
+}: {
+  label: string
+  value: string
+  onChange: (v: string) => void
+  required?: boolean
+}) {
+  return (
+    <label className="flex flex-col gap-1">
+      <span className="text-sm text-sumi-muted">{label}</span>
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        required={required}
+        className="rounded-lg border border-card-border bg-white px-3 py-2"
+      />
+    </label>
+  )
+}
+
+function TextArea({
+  label,
+  value,
+  onChange,
+  placeholder,
+}: {
+  label: string
+  value: string
+  onChange: (v: string) => void
+  placeholder?: string
+}) {
+  return (
+    <label className="flex flex-col gap-1">
+      <span className="text-sm text-sumi-muted">{label}</span>
+      <textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        rows={3}
+        placeholder={placeholder}
+        className="rounded-lg border border-card-border bg-white px-3 py-2"
+      />
+    </label>
+  )
+}
