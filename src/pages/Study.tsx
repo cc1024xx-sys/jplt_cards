@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Flashcard } from '../components/Flashcard'
 import { getAllCards, getCardsByDeck, saveCard } from '../lib/db'
 import { applyFamiliarity, sortForReview } from '../lib/review-scheduler'
-import type { Card, CardType, Familiarity } from '../lib/types'
+import { LinkedCardsSection } from '../components/LinkedCardsSection'
+import { type Card, type CardType, type Familiarity } from '../lib/types'
 
 export function Study() {
   const [searchParams] = useSearchParams()
@@ -11,6 +12,7 @@ export function Study() {
   const typeFilter = searchParams.get('type') as CardType | null
 
   const [queue, setQueue] = useState<Card[]>([])
+  const [allCards, setAllCards] = useState<Card[]>([])
   const [index, setIndex] = useState(0)
   const [loading, setLoading] = useState(true)
   const [done, setDone] = useState(false)
@@ -23,6 +25,8 @@ export function Study() {
       } else {
         cards = await getAllCards()
       }
+      const universe = await getAllCards()
+      setAllCards(universe)
       if (typeFilter) {
         cards = cards.filter((c) => c.type === typeFilter)
       }
@@ -32,8 +36,17 @@ export function Study() {
       setDone(sorted.length === 0)
       setLoading(false)
     }
-    load()
+    void load()
   }, [deckId, typeFilter])
+
+  const current = queue[index]
+
+  const linkedCards = useMemo(() => {
+    if (!current) return []
+    return (current.linkedCardIds ?? [])
+      .map((id) => allCards.find((card) => card.id === id))
+      .filter((card): card is Card => Boolean(card))
+  }, [current, allCards])
 
   const handleRate = useCallback(
     async (familiarity: Familiarity) => {
@@ -46,6 +59,9 @@ export function Study() {
         updatedAt: new Date().toISOString(),
       }
       await saveCard(updated)
+
+      setQueue((prev) => prev.map((c, i) => (i === index ? updated : c)))
+      setAllCards((prev) => prev.map((c) => (c.id === updated.id ? updated : c)))
 
       const nextIndex = index + 1
       if (nextIndex >= queue.length) {
@@ -77,7 +93,6 @@ export function Study() {
     )
   }
 
-  const current = queue[index]
   if (!current) return null
 
   return (
@@ -92,6 +107,10 @@ export function Study() {
         total={queue.length}
         onRate={handleRate}
       />
+
+      <div className="mt-5">
+        <LinkedCardsSection cards={linkedCards} />
+      </div>
     </div>
   )
 }

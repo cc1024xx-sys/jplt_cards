@@ -7,7 +7,6 @@ import { CARD_TYPE_LABELS, type CardType } from '../lib/types'
 export function DeckNew() {
   const navigate = useNavigate()
   const [name, setName] = useState('')
-  const [description, setDescription] = useState('')
   const [cardType, setCardType] = useState<CardType>('vocabulary')
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -17,7 +16,6 @@ export function DeckNew() {
     await saveDeck({
       id: generateId(),
       name: name.trim(),
-      description: description.trim() || undefined,
       cardType,
       createdAt: now,
       updatedAt: now,
@@ -36,14 +34,6 @@ export function DeckNew() {
             onChange={(e) => setName(e.target.value)}
             className="rounded-lg border border-card-border bg-white px-3 py-2"
             required
-          />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-sm text-sumi-muted">描述（可选）</span>
-          <input
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            className="rounded-lg border border-card-border bg-white px-3 py-2"
           />
         </label>
         <label className="flex flex-col gap-1">

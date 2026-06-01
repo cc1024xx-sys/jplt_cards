@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie'
-import type { Card, Deck } from './types'
+import { getCardSearchText, type Card, type Deck } from './types'
 
 export class JapaneseLearningDB extends Dexie {
   decks!: Table<Deck, string>
@@ -11,6 +11,22 @@ export class JapaneseLearningDB extends Dexie {
       decks: 'id, cardType, updatedAt',
       cards: 'id, deckId, type, *tags, updatedAt, review.familiarity, review.nextReviewAt',
     })
+    this.version(2)
+      .stores({
+        decks: 'id, cardType, updatedAt',
+        cards:
+          'id, deckId, type, *tags, *linkedCardIds, updatedAt, review.familiarity, review.nextReviewAt',
+      })
+      .upgrade((tx) =>
+        tx
+          .table('cards')
+          .toCollection()
+          .modify((card: Card & { linkedCardIds?: string[] }) => {
+            if (!Array.isArray(card.linkedCardIds)) {
+              card.linkedCardIds = []
+            }
+          }),
+      )
   }
 }
 
@@ -43,12 +59,56 @@ export async function getAllCards(): Promise<Card[]> {
   return db.cards.toArray()
 }
 
+export async function searchCards(query: string, deckId?: string): Promise<Card[]> {
+  const keyword = query.trim().toLowerCase()
+  const cards = deckId ? await getCardsByDeck(deckId) : await getAllCards()
+  if (!keyword) return cards
+  return cards.filter((card) => getCardSearchText(card).includes(keyword))
+}
+
 export async function getCard(id: string): Promise<Card | undefined> {
   return db.cards.get(id)
 }
 
 export async function saveCard(card: Card): Promise<void> {
   await db.cards.put(card)
+}
+
+export async function linkCards(cardId: string, targetCardId: string): Promise<void> {
+  if (!cardId || !targetCardId || cardId === targetCardId) return
+  await db.transaction('rw', db.cards, async () => {
+    const a = await db.cards.get(cardId)
+    const b = await db.cards.get(targetCardId)
+    if (!a || !b) return
+
+    const aLinks = new Set(a.linkedCardIds ?? [])
+    const bLinks = new Set(b.linkedCardIds ?? [])
+    aLinks.add(targetCardId)
+    bLinks.add(cardId)
+
+    await db.cards.put({ ...a, linkedCardIds: [...aLinks], updatedAt: new Date().toISOString() })
+    await db.cards.put({ ...b, linkedCardIds: [...bLinks], updatedAt: new Date().toISOString() })
+  })
+}
+
+export async function unlinkCards(cardId: string, targetCardId: string): Promise<void> {
+  if (!cardId || !targetCardId || cardId === targetCardId) return
+  await db.transaction('rw', db.cards, async () => {
+    const a = await db.cards.get(cardId)
+    const b = await db.cards.get(targetCardId)
+    if (!a || !b) return
+
+    await db.cards.put({
+      ...a,
+      linkedCardIds: (a.linkedCardIds ?? []).filter((id) => id !== targetCardId),
+      updatedAt: new Date().toISOString(),
+    })
+    await db.cards.put({
+      ...b,
+      linkedCardIds: (b.linkedCardIds ?? []).filter((id) => id !== cardId),
+      updatedAt: new Date().toISOString(),
+    })
+  })
 }
 
 export async function deleteCard(id: string): Promise<void> {

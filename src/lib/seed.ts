@@ -15,7 +15,6 @@ export async function seedSampleData(): Promise<void> {
     id: vocabDeckId,
     name: '日常词语',
     cardType: 'vocabulary',
-    description: '示例词语牌组',
     createdAt: now,
     updatedAt: now,
   })
@@ -23,7 +22,6 @@ export async function seedSampleData(): Promise<void> {
     id: grammarDeckId,
     name: '基础语法',
     cardType: 'grammar',
-    description: '示例语法牌组',
     createdAt: now,
     updatedAt: now,
   })
@@ -31,7 +29,6 @@ export async function seedSampleData(): Promise<void> {
     id: corpusDeckId,
     name: '便利店口语',
     cardType: 'corpus',
-    description: '示例语料库牌组',
     createdAt: now,
     updatedAt: now,
   })
@@ -44,6 +41,7 @@ export async function seedSampleData(): Promise<void> {
     createdAt: now,
     updatedAt: now,
     review: createDefaultReview(),
+    linkedCardIds: [],
     front: { meaningZh: '结账；买单', hint: '餐厅' },
     back: {
       expressionJa: 'お会計お願いします',
@@ -61,6 +59,7 @@ export async function seedSampleData(): Promise<void> {
     createdAt: now,
     updatedAt: now,
     review: createDefaultReview(),
+    linkedCardIds: [],
     front: { pattern: '动词て形 + から' },
     back: {
       meaningZh: '表示先后顺序：做完 A 之后做 B',
@@ -80,6 +79,7 @@ export async function seedSampleData(): Promise<void> {
     createdAt: now,
     updatedAt: now,
     review: createDefaultReview(),
+    linkedCardIds: [],
     front: { scenario: '在便利店买饮料' },
     back: {
       words: [

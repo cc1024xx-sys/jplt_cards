@@ -3,6 +3,7 @@ import { Layout } from './components/Layout'
 import { Home } from './pages/Home'
 import { Decks } from './pages/Decks'
 import { DeckNew } from './pages/DeckNew'
+import { DeckEdit } from './pages/DeckEdit'
 import { DeckDetail } from './pages/DeckDetail'
 import { Study } from './pages/Study'
 import { CardForm } from './pages/CardForm'
@@ -16,6 +17,8 @@ export default function App() {
           <Route index element={<Home />} />
           <Route path="decks" element={<Decks />} />
           <Route path="decks/new" element={<DeckNew />} />
+          <Route path="decks/edit" element={<DeckEdit />} />
+          <Route path="decks/:deckId/edit" element={<DeckEdit />} />
           <Route path="decks/:deckId" element={<DeckDetail />} />
           <Route path="study" element={<Study />} />
           <Route path="cards/new" element={<CardForm />} />

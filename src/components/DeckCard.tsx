@@ -5,9 +5,10 @@ import { CARD_TYPE_LABELS } from '../lib/types'
 interface DeckCardProps {
   deck: Deck
   cardCount: number
+  japanesePreview?: string
 }
 
-export function DeckCard({ deck, cardCount }: DeckCardProps) {
+export function DeckCard({ deck, cardCount, japanesePreview }: DeckCardProps) {
   const typeColors: Record<string, string> = {
     vocabulary: 'bg-sakura/20 text-sakura-deep',
     grammar: 'bg-indigo-ja/15 text-indigo-ja-dark',
@@ -25,8 +26,10 @@ export function DeckCard({ deck, cardCount }: DeckCardProps) {
           {CARD_TYPE_LABELS[deck.cardType]}
         </span>
       </div>
-      {deck.description && (
-        <p className="mt-1 text-sm text-sumi-muted line-clamp-2">{deck.description}</p>
+      {japanesePreview && (
+        <p className="mt-2 text-sm text-indigo-ja-dark line-clamp-1">
+          日语表达：{japanesePreview}
+        </p>
       )}
       <p className="mt-2 text-xs text-sumi-muted">{cardCount} 张卡片</p>
     </Link>

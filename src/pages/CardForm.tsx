@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { getAllDecks, getCard, saveCard } from '../lib/db'
 import { generateId } from '../lib/id'
@@ -48,12 +48,39 @@ export function CardForm() {
 
   const [tags, setTags] = useState('')
 
-  useEffect(() => {
-    getAllDecks().then((list) => {
-      setDecks(list)
-      if (!deckId && list.length > 0) setDeckId(list[0].id)
+  const normalizeDecks = (list: Deck[]): Deck[] => {
+    // 按 id 与「名称+类型」双重去重，避免选择器中出现重复牌组项。
+    const byId = new Map<string, Deck>()
+    for (const deck of list) {
+      const existing = byId.get(deck.id)
+      if (!existing || deck.updatedAt > existing.updatedAt) {
+        byId.set(deck.id, deck)
+      }
+    }
+
+    const byNameType = new Map<string, Deck>()
+    for (const deck of byId.values()) {
+      const key = `${deck.name.trim().toLowerCase()}::${deck.cardType}`
+      const existing = byNameType.get(key)
+      if (!existing || deck.updatedAt > existing.updatedAt) {
+        byNameType.set(key, deck)
+      }
+    }
+    return [...byNameType.values()]
+  }
+
+  const loadDecks = useCallback(async () => {
+    const list = normalizeDecks(await getAllDecks())
+    setDecks(list)
+    setDeckId((prev) => {
+      if (prev && list.some((d) => d.id === prev)) return prev
+      return list[0]?.id ?? ''
     })
-  }, [deckId])
+  }, [])
+
+  useEffect(() => {
+    void loadDecks()
+  }, [loadDecks])
 
   useEffect(() => {
     if (!cardId) return
@@ -136,6 +163,7 @@ export function CardForm() {
     const existing = cardId ? await getCard(cardId) : null
     const review = existing?.review ?? createDefaultReview()
     const createdAt = existing?.createdAt ?? now
+    const linkedCardIds = existing?.linkedCardIds ?? []
 
     if (cardType === 'vocabulary') {
       card = {
@@ -146,6 +174,7 @@ export function CardForm() {
         createdAt,
         updatedAt: now,
         review,
+        linkedCardIds,
         front: { meaningZh: meaningZh.trim(), hint: hint.trim() || undefined },
         back: {
           expressionJa: expressionJa.trim(),
@@ -163,6 +192,7 @@ export function CardForm() {
         createdAt,
         updatedAt: now,
         review,
+        linkedCardIds,
         front: { pattern: pattern.trim() },
         back: {
           meaningZh: grammarMeaning.trim(),
@@ -191,6 +221,7 @@ export function CardForm() {
         createdAt,
         updatedAt: now,
         review,
+        linkedCardIds,
         front: { scenario: scenario.trim() },
         back: { words, phrases },
       } satisfies CorpusCard
@@ -202,7 +233,8 @@ export function CardForm() {
 
   if (loading) return <p className="text-center text-sumi-muted">加载中…</p>
 
-  const filteredDecks = decks.filter((d) => d.cardType === cardType || !isEdit)
+  const filteredDecks = decks.filter((d) => d.cardType === cardType)
+  const selectDecks = isEdit ? decks : filteredDecks
 
   return (
     <div>
@@ -244,15 +276,23 @@ export function CardForm() {
             <select
               value={deckId}
               onChange={(e) => setDeckId(e.target.value)}
+              onFocus={() => {
+                void loadDecks()
+              }}
               className="rounded-lg border border-card-border bg-white px-3 py-2"
               required
             >
-              {(isEdit ? decks : filteredDecks.length ? filteredDecks : decks).map((d) => (
+              {selectDecks.map((d) => (
                 <option key={d.id} value={d.id}>
                   {d.name}（{CARD_TYPE_LABELS[d.cardType]}）
                 </option>
               ))}
             </select>
+            {!isEdit && selectDecks.length === 0 && (
+              <span className="text-xs text-sakura-deep">
+                当前类型暂无牌组，请先创建同类型牌组。
+              </span>
+            )}
           </label>
 
           {cardType === 'vocabulary' && (
@@ -310,6 +350,7 @@ export function CardForm() {
 
           <button
             type="submit"
+            disabled={!isEdit && selectDecks.length === 0}
             className="rounded-xl bg-indigo-ja-dark py-3 text-white hover:bg-indigo-ja"
           >
             {isEdit ? '保存' : '创建'}

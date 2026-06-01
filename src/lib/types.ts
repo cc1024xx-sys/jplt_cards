@@ -12,7 +12,6 @@ export interface Deck {
   id: string
   name: string
   cardType: CardType
-  description?: string
   createdAt: string
   updatedAt: string
 }
@@ -70,6 +69,7 @@ export interface BaseCard {
   deckId: string
   type: CardType
   tags: string[]
+  linkedCardIds: string[]
   createdAt: string
   updatedAt: string
   review: CardReviewState
@@ -103,7 +103,7 @@ export interface BackupFile {
 }
 
 export const CARD_TYPE_LABELS: Record<CardType, string> = {
-  vocabulary: '词语',
+  vocabulary: '词汇',
   grammar: '语法',
   corpus: '语料库',
 }
@@ -134,4 +134,49 @@ export function isGrammarCard(card: Card): card is GrammarCard {
 
 export function isCorpusCard(card: Card): card is CorpusCard {
   return card.type === 'corpus'
+}
+
+export function getCardFrontText(card: Card): string {
+  if (card.type === 'vocabulary') return card.front.meaningZh
+  if (card.type === 'grammar') return card.front.pattern
+  return card.front.scenario
+}
+
+/** 复习/列表用：日语表达 + 中文意思 */
+export function getCardBrief(card: Card): { ja: string; zh: string } {
+  if (card.type === 'vocabulary') {
+    return { ja: card.back.expressionJa, zh: card.front.meaningZh }
+  }
+  if (card.type === 'grammar') {
+    return { ja: card.front.pattern, zh: card.back.meaningZh }
+  }
+  const phrase = card.back.phrases[0]
+  if (phrase) return { ja: phrase.ja, zh: phrase.zh }
+  const word = card.back.words[0]
+  if (word) return { ja: word.ja, zh: word.zh }
+  return { ja: card.front.scenario, zh: card.front.scenario }
+}
+
+export function getCardSearchText(card: Card): string {
+  const parts: string[] = [getCardFrontText(card), ...card.tags]
+  if (card.type === 'vocabulary') {
+    parts.push(card.back.expressionJa, card.back.reading ?? '')
+    parts.push(...card.back.scenarios)
+    for (const ex of card.back.examples ?? []) {
+      parts.push(ex.ja, ex.zh)
+    }
+  } else if (card.type === 'grammar') {
+    parts.push(card.back.meaningZh, ...card.back.scenarios)
+    for (const ex of card.back.examples) {
+      parts.push(ex.ja, ex.zh)
+    }
+  } else {
+    for (const w of card.back.words) {
+      parts.push(w.ja, w.zh, w.reading ?? '')
+    }
+    for (const p of card.back.phrases) {
+      parts.push(p.ja, p.zh, p.note ?? '')
+    }
+  }
+  return parts.join(' ').toLowerCase()
 }
