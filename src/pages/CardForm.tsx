@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { CorpusPhraseFields, CorpusWordFields } from '../components/CorpusFields'
 import { ExampleFields } from '../components/ExampleFields'
-import { getAllDecks, getCard, saveCard } from '../lib/db'
+import { LinkCardsModal } from '../components/LinkCardsModal'
+import { LinkedCardsSection } from '../components/LinkedCardsSection'
+import { getAllCards, getAllDecks, getCard, saveCard } from '../lib/db'
 import { normalizeExampleList } from '../lib/example-text'
 import { generateId } from '../lib/id'
 import {
@@ -51,6 +53,10 @@ export function CardForm() {
   const [corpusPhrases, setCorpusPhrases] = useState<CorpusPhrase[]>([])
 
   const [tags, setTags] = useState('')
+  const [editingCard, setEditingCard] = useState<Card | null>(null)
+  const [linkedCardIds, setLinkedCardIds] = useState<string[]>([])
+  const [allCards, setAllCards] = useState<Card[]>([])
+  const [showLinkModal, setShowLinkModal] = useState(false)
 
   const normalizeDecks = (list: Deck[]): Deck[] => {
     // 按 id 与「名称+类型」双重去重，避免选择器中出现重复牌组项。
@@ -117,9 +123,35 @@ export function CardForm() {
         setCorpusWords(card.back.words)
         setCorpusPhrases(card.back.phrases)
       }
+      setEditingCard(card)
+      setLinkedCardIds(card.linkedCardIds ?? [])
+      void getAllCards().then(setAllCards)
       setLoading(false)
     })
   }, [cardId, navigate])
+
+  const refreshLinks = useCallback(async () => {
+    if (!cardId) return
+    const card = await getCard(cardId)
+    if (card) {
+      setEditingCard(card)
+      setLinkedCardIds(card.linkedCardIds ?? [])
+      setAllCards(await getAllCards())
+    }
+  }, [cardId])
+
+  const linkingCardSnapshot = useMemo((): Card | null => {
+    if (!editingCard) return null
+    return { ...editingCard, linkedCardIds }
+  }, [editingCard, linkedCardIds])
+
+  const linkedCardsPreview = useMemo(
+    () =>
+      linkedCardIds
+        .map((id) => allCards.find((c) => c.id === id))
+        .filter((c): c is Card => Boolean(c)),
+    [linkedCardIds, allCards],
+  )
 
   useEffect(() => {
     if (isEdit || !deckId) return
@@ -176,7 +208,7 @@ export function CardForm() {
     const existing = cardId ? await getCard(cardId) : null
     const review = existing?.review ?? createDefaultReview()
     const createdAt = existing?.createdAt ?? now
-    const linkedCardIds = existing?.linkedCardIds ?? []
+    const savedLinkedIds = isEdit ? linkedCardIds : (existing?.linkedCardIds ?? [])
 
     const vocabExampleList = normalizeExampleList(vocabExamples)
     const grammarExampleList = normalizeExampleList(grammarExamples)
@@ -190,7 +222,7 @@ export function CardForm() {
         createdAt,
         updatedAt: now,
         review,
-        linkedCardIds,
+        linkedCardIds: savedLinkedIds,
         front: { meaningZh: meaningZh.trim(), hint: hint.trim() || undefined },
         back: {
           expressionJa: expressionJa.trim(),
@@ -208,7 +240,7 @@ export function CardForm() {
         createdAt,
         updatedAt: now,
         review,
-        linkedCardIds,
+        linkedCardIds: savedLinkedIds,
         front: { pattern: pattern.trim() },
         back: {
           meaningZh: grammarMeaning.trim(),
@@ -228,7 +260,7 @@ export function CardForm() {
         createdAt,
         updatedAt: now,
         review,
-        linkedCardIds,
+        linkedCardIds: savedLinkedIds,
         front: { scenario: scenario.trim() },
         back: { words, phrases },
       } satisfies CorpusCard
@@ -345,6 +377,25 @@ export function CardForm() {
 
           <Field label="标签（逗号分隔，可选）" value={tags} onChange={setTags} />
 
+          {isEdit && linkingCardSnapshot && (
+            <section className="rounded-xl border border-card-border bg-white p-4">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <span className="text-sm font-medium text-indigo-ja-dark">关联对比</span>
+                <button
+                  type="button"
+                  onClick={() => setShowLinkModal(true)}
+                  className="rounded border border-card-border px-2 py-1 text-xs text-indigo-ja-dark hover:bg-washi"
+                >
+                  关联对比
+                </button>
+              </div>
+              <LinkedCardsSection
+                cards={linkedCardsPreview}
+                emptyHint="尚未关联其他卡片，点击「管理关联」添加同类型对比卡。"
+              />
+            </section>
+          )}
+
           <button
             type="submit"
             disabled={!isEdit && selectDecks.length === 0}
@@ -353,6 +404,15 @@ export function CardForm() {
             {isEdit ? '保存' : '创建'}
           </button>
         </form>
+      )}
+
+      {showLinkModal && linkingCardSnapshot && (
+        <LinkCardsModal
+          card={linkingCardSnapshot}
+          allCards={allCards}
+          onClose={() => setShowLinkModal(false)}
+          onLinksChanged={refreshLinks}
+        />
       )}
     </div>
   )
