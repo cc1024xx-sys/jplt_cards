@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { CorpusPhraseFields, CorpusWordFields } from '../components/CorpusFields'
 import { ExampleFields } from '../components/ExampleFields'
 import { getAllDecks, getCard, saveCard } from '../lib/db'
 import { generateId } from '../lib/id'
@@ -35,18 +36,18 @@ export function CardForm() {
   const [expressionJa, setExpressionJa] = useState('')
   const [reading, setReading] = useState('')
   const [vocabScenarios, setVocabScenarios] = useState('')
-  const [vocabExamples, setVocabExamples] = useState<ExamplePair[]>([])
+  const [vocabExamples, setVocabExamples] = useState<ExamplePair[]>([{ ja: '', zh: '' }])
 
   // Grammar
   const [pattern, setPattern] = useState('')
   const [grammarMeaning, setGrammarMeaning] = useState('')
   const [grammarScenarios, setGrammarScenarios] = useState('')
-  const [grammarExamples, setGrammarExamples] = useState<ExamplePair[]>([])
+  const [grammarExamples, setGrammarExamples] = useState<ExamplePair[]>([{ ja: '', zh: '' }])
 
   // Corpus
   const [scenario, setScenario] = useState('')
-  const [corpusWords, setCorpusWords] = useState('')
-  const [corpusPhrases, setCorpusPhrases] = useState('')
+  const [corpusWords, setCorpusWords] = useState<CorpusWord[]>([])
+  const [corpusPhrases, setCorpusPhrases] = useState<CorpusPhrase[]>([])
 
   const [tags, setTags] = useState('')
 
@@ -100,22 +101,20 @@ export function CardForm() {
         setExpressionJa(card.back.expressionJa)
         setReading(card.back.reading ?? '')
         setVocabScenarios(card.back.scenarios.join('\n'))
-        setVocabExamples(card.back.examples ?? [])
+        setVocabExamples(
+          card.back.examples?.length ? card.back.examples : [{ ja: '', zh: '' }],
+        )
       } else if (card.type === 'grammar') {
         setPattern(card.front.pattern)
         setGrammarMeaning(card.back.meaningZh)
         setGrammarScenarios(card.back.scenarios.join('\n'))
-        setGrammarExamples(card.back.examples)
+        setGrammarExamples(
+          card.back.examples.length > 0 ? card.back.examples : [{ ja: '', zh: '' }],
+        )
       } else {
         setScenario(card.front.scenario)
-        setCorpusWords(
-          card.back.words.map((w) => `${w.ja}|${w.zh}|${w.reading ?? ''}`).join('\n'),
-        )
-        setCorpusPhrases(
-          card.back.phrases
-            .map((p) => `${p.ja}|${p.zh}|${p.note ?? ''}`)
-            .join('\n'),
-        )
+        setCorpusWords(card.back.words)
+        setCorpusPhrases(card.back.phrases)
       }
       setLoading(false)
     })
@@ -137,6 +136,31 @@ export function CardForm() {
     examples
       .map((e) => ({ ja: e.ja.trim(), zh: e.zh.trim() }))
       .filter((e) => e.ja && e.zh)
+
+  const normalizeCorpusWords = (words: CorpusWord[]): CorpusWord[] =>
+    words
+      .map((w) => ({
+        ja: w.ja.trim(),
+        zh: w.zh.trim(),
+        reading: w.reading?.trim() || undefined,
+      }))
+      .filter((w) => w.ja && w.zh)
+
+  const normalizeCorpusPhrases = (phrases: CorpusPhrase[]): CorpusPhrase[] =>
+    phrases
+      .map((p) => ({
+        ja: p.ja.trim(),
+        zh: p.zh.trim(),
+        note: p.note?.trim() || undefined,
+      }))
+      .filter((p) => p.ja && p.zh)
+
+  const resetStructuredFields = () => {
+    setVocabExamples([{ ja: '', zh: '' }])
+    setGrammarExamples([{ ja: '', zh: '' }])
+    setCorpusWords([])
+    setCorpusPhrases([])
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -197,17 +221,8 @@ export function CardForm() {
         },
       } satisfies GrammarCard
     } else {
-      const words: CorpusWord[] = []
-      for (const line of parseLines(corpusWords)) {
-        const [ja, zh, r] = line.split('|').map((s) => s.trim())
-        if (ja && zh) words.push({ ja, zh, reading: r || undefined })
-      }
-
-      const phrases: CorpusPhrase[] = []
-      for (const line of parseLines(corpusPhrases)) {
-        const [ja, zh, note] = line.split('|').map((s) => s.trim())
-        if (ja && zh) phrases.push({ ja, zh, note: note || undefined })
-      }
+      const words = normalizeCorpusWords(corpusWords)
+      const phrases = normalizeCorpusPhrases(corpusPhrases)
 
       card = {
         id,
@@ -255,6 +270,7 @@ export function CardForm() {
                   setCardType(t)
                   const match = decks.find((d) => d.cardType === t)
                   if (match) setDeckId(match.id)
+                  if (!isEdit) resetStructuredFields()
                 }}
                 className="rounded-lg border border-card-border bg-white px-3 py-2"
               >
@@ -326,18 +342,8 @@ export function CardForm() {
           {cardType === 'corpus' && (
             <>
               <Field label="口语场景（正面）" value={scenario} onChange={setScenario} required />
-              <TextArea
-                label="常用单词（每行：日语|中文|读音可选）"
-                value={corpusWords}
-                onChange={setCorpusWords}
-                placeholder="コーヒー|咖啡"
-              />
-              <TextArea
-                label="常用句式（每行：日语|中文|备注可选）"
-                value={corpusPhrases}
-                onChange={setCorpusPhrases}
-                placeholder="これください|请给我这个"
-              />
+              <CorpusWordFields value={corpusWords} onChange={setCorpusWords} />
+              <CorpusPhraseFields value={corpusPhrases} onChange={setCorpusPhrases} />
             </>
           )}
 
