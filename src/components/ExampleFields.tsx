@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { countInvalidExampleLines, parseExampleLines } from '../lib/parse-card-fields'
+import { useCallback } from 'react'
+import { exampleFromText, formatExampleText } from '../lib/example-text'
 import type { ExamplePair } from '../lib/types'
 
 interface ExampleFieldsProps {
@@ -8,73 +8,67 @@ interface ExampleFieldsProps {
   onChange: (examples: ExamplePair[]) => void
 }
 
+function resizeTextarea(el: HTMLTextAreaElement) {
+  el.style.height = 'auto'
+  el.style.height = `${Math.max(el.scrollHeight, 72)}px`
+}
+
 export function ExampleFields({ label, value, onChange }: ExampleFieldsProps) {
-  const [bulkText, setBulkText] = useState('')
   const rows = value.length > 0 ? value : [{ ja: '', zh: '' }]
 
-  const applyBulkPaste = () => {
-    const trimmed = bulkText.trim()
-    if (!trimmed) return
-    const invalid = countInvalidExampleLines(trimmed)
-    const parsed = parseExampleLines(trimmed)
-    if (parsed.length === 0) {
-      window.alert('未能识别例句，请使用「日语|中文」或「日语｜中文」格式，每行一条。')
-      return
-    }
-    if (invalid > 0) {
-      window.alert(`已导入 ${parsed.length} 条例句，有 ${invalid} 行格式无效已跳过。`)
-    }
-    const existing = normalizeExamples(value)
-    onChange([...existing, ...parsed])
-    setBulkText('')
-  }
+  const setTextareaRef = useCallback((el: HTMLTextAreaElement | null) => {
+    if (el) resizeTextarea(el)
+  }, [])
 
-  const updateRow = (index: number, field: 'ja' | 'zh', text: string) => {
-    const next = rows.map((row, i) => (i === index ? { ...row, [field]: text } : row))
+  const updateRow = (index: number, text: string) => {
+    const next = rows.map((row, i) => (i === index ? exampleFromText(text) : row))
     onChange(next)
   }
 
   const addRow = () => {
-    onChange([...rows, { ja: '', zh: '' }])
+    onChange([...rows, exampleFromText('')])
   }
 
   const removeRow = (index: number) => {
     const next = rows.filter((_, i) => i !== index)
-    onChange(next.length > 0 ? next : [{ ja: '', zh: '' }])
+    onChange(next.length > 0 ? next : [exampleFromText('')])
   }
 
   return (
     <div className="flex flex-col gap-2">
       <span className="text-sm text-sumi-muted">{label}</span>
+      <p className="text-xs text-sumi-muted">支持换行（Enter），每框一条例句</p>
       <div className="space-y-2">
-        {rows.map((row, index) => (
-          <div
-            key={index}
-            className="grid grid-cols-1 gap-2 rounded-lg border border-card-border bg-white p-2 sm:grid-cols-[1fr_1fr_auto]"
-          >
-            <input
-              value={row.ja}
-              onChange={(e) => updateRow(index, 'ja', e.target.value)}
-              placeholder="日语例句"
-              className="rounded-lg border border-card-border px-3 py-2 text-sm"
-            />
-            <input
-              value={row.zh}
-              onChange={(e) => updateRow(index, 'zh', e.target.value)}
-              placeholder="中文释义"
-              className="rounded-lg border border-card-border px-3 py-2 text-sm"
-            />
-            <button
-              type="button"
-              onClick={() => removeRow(index)}
-              disabled={rows.length === 1 && !row.ja && !row.zh}
-              className="rounded border border-card-border px-2 py-1 text-xs text-sumi-muted hover:bg-washi disabled:opacity-40"
-              aria-label="删除例句"
+        {rows.map((row, index) => {
+          const text = formatExampleText(row)
+          return (
+            <div
+              key={index}
+              className="flex gap-2 rounded-lg border border-card-border bg-white p-2"
             >
-              删除
-            </button>
-          </div>
-        ))}
+              <textarea
+                ref={setTextareaRef}
+                value={text}
+                onChange={(e) => {
+                  updateRow(index, e.target.value)
+                  resizeTextarea(e.target)
+                }}
+                rows={3}
+                placeholder="例句内容（可换行）"
+                className="min-h-[4.5rem] min-w-0 flex-1 resize-y rounded-lg border border-card-border px-3 py-2 text-sm whitespace-pre-wrap"
+              />
+              <button
+                type="button"
+                onClick={() => removeRow(index)}
+                disabled={rows.length === 1 && !text.trim()}
+                className="shrink-0 self-start rounded border border-card-border px-2 py-1 text-xs text-sumi-muted hover:bg-washi disabled:opacity-40"
+                aria-label="删除例句"
+              >
+                删除
+              </button>
+            </div>
+          )
+        })}
       </div>
       <button
         type="button"
@@ -83,30 +77,6 @@ export function ExampleFields({ label, value, onChange }: ExampleFieldsProps) {
       >
         ＋ 添加例句
       </button>
-      <div className="mt-1 flex flex-col gap-1">
-        <span className="text-xs text-sumi-muted">批量粘贴（每行：日语|中文，支持全角｜）</span>
-        <textarea
-          value={bulkText}
-          onChange={(e) => setBulkText(e.target.value)}
-          rows={2}
-          placeholder="お会計お願いします|请结账"
-          className="rounded-lg border border-card-border bg-white px-3 py-2 text-sm"
-        />
-        <button
-          type="button"
-          onClick={applyBulkPaste}
-          disabled={!bulkText.trim()}
-          className="self-start rounded border border-card-border px-2 py-1 text-xs text-indigo-ja-dark hover:bg-washi disabled:opacity-40"
-        >
-          导入到例句列表
-        </button>
-      </div>
     </div>
   )
-}
-
-function normalizeExamples(examples: ExamplePair[]): ExamplePair[] {
-  return examples
-    .map((e) => ({ ja: e.ja.trim(), zh: e.zh.trim() }))
-    .filter((e) => e.ja && e.zh)
 }

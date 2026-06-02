@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { CorpusPhraseFields, CorpusWordFields } from '../components/CorpusFields'
 import { ExampleFields } from '../components/ExampleFields'
 import { getAllDecks, getCard, saveCard } from '../lib/db'
+import { normalizeExampleList } from '../lib/example-text'
 import { generateId } from '../lib/id'
 import {
   CARD_TYPE_LABELS,
@@ -132,11 +133,6 @@ export function CardForm() {
       .map((s) => s.trim())
       .filter(Boolean)
 
-  const normalizeExamples = (examples: ExamplePair[]): ExamplePair[] =>
-    examples
-      .map((e) => ({ ja: e.ja.trim(), zh: e.zh.trim() }))
-      .filter((e) => e.ja && e.zh)
-
   const normalizeCorpusWords = (words: CorpusWord[]): CorpusWord[] =>
     words
       .map((w) => ({
@@ -182,8 +178,8 @@ export function CardForm() {
     const createdAt = existing?.createdAt ?? now
     const linkedCardIds = existing?.linkedCardIds ?? []
 
-    const vocabExampleList = normalizeExamples(vocabExamples)
-    const grammarExampleList = normalizeExamples(grammarExamples)
+    const vocabExampleList = normalizeExampleList(vocabExamples)
+    const grammarExampleList = normalizeExampleList(grammarExamples)
 
     if (cardType === 'vocabulary') {
       card = {

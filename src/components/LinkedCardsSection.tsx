@@ -1,3 +1,4 @@
+import { ExampleLine } from './ExampleDisplay'
 import {
   CARD_TYPE_LABELS,
   FAMILIARITY_LABELS,
@@ -6,6 +7,7 @@ import {
   isGrammarCard,
   isVocabularyCard,
   type Card,
+  type ExamplePair,
 } from '../lib/types'
 
 interface LinkedCardsSectionProps {
@@ -147,15 +149,14 @@ function ScenariosBlock({ items }: { items: string[] }) {
   )
 }
 
-function ExamplesBlock({ examples }: { examples: { ja: string; zh: string }[] }) {
+function ExamplesBlock({ examples }: { examples: ExamplePair[] }) {
   return (
     <div>
       <p className="mb-1 text-xs font-medium text-sakura-deep">例句</p>
       <ul className="space-y-1.5">
         {examples.map((ex, i) => (
-          <li key={i} className="rounded-md bg-white/80 px-2 py-1.5 text-sm">
-            <p className="text-sumi">{ex.ja}</p>
-            <p className="text-sumi-muted">{ex.zh}</p>
+          <li key={i} className="rounded-md bg-white/80 px-2 py-1.5 text-sm whitespace-pre-wrap">
+            <ExampleLine ex={ex} />
           </li>
         ))}
       </ul>

@@ -1,5 +1,7 @@
 import { useState } from 'react'
+import { ExampleLine } from './ExampleDisplay'
 import type { Card } from '../lib/types'
+import { formatExampleText } from '../lib/example-text'
 import { isCorpusCard, isGrammarCard, isVocabularyCard } from '../lib/types'
 
 export function CardFront({
@@ -104,20 +106,25 @@ export function CardBack({
             </ul>
           </div>
         )}
-        {card.back.examples?.map((ex, i) => (
-          <div key={i} className="rounded-lg bg-washi p-3 text-sm">
-            <div className="flex items-center gap-2">
-              <p className="text-sumi">{ex.ja}</p>
-              <CopyButton
-                text={ex.ja}
-                copyKey={`vocab-example-ja-${card.id}-${i}`}
-                copiedKey={copiedKey}
-                onCopy={onCopy}
-              />
+        {card.back.examples?.map((ex, i) => {
+          const text = formatExampleText(ex)
+          if (!text) return null
+          return (
+            <div key={i} className="rounded-lg bg-washi p-3 text-sm">
+              <div className="flex items-start gap-2">
+                <div className="min-w-0 flex-1">
+                  <ExampleLine ex={ex} />
+                </div>
+                <CopyButton
+                  text={text}
+                  copyKey={`vocab-example-${card.id}-${i}`}
+                  copiedKey={copiedKey}
+                  onCopy={onCopy}
+                />
+              </div>
             </div>
-            <p className="mt-1 text-sumi-muted">{ex.zh}</p>
-          </div>
-        ))}
+          )
+        })}
       </div>
     )
   }
@@ -135,20 +142,25 @@ export function CardBack({
             </ul>
           </div>
         )}
-        {card.back.examples.map((ex, i) => (
-          <div key={i} className="rounded-lg bg-washi p-3 text-sm">
-            <div className="flex items-center gap-2">
-              <p>{ex.ja}</p>
-              <CopyButton
-                text={ex.ja}
-                copyKey={`grammar-example-ja-${card.id}-${i}`}
-                copiedKey={copiedKey}
-                onCopy={onCopy}
-              />
+        {card.back.examples.map((ex, i) => {
+          const text = formatExampleText(ex)
+          if (!text) return null
+          return (
+            <div key={i} className="rounded-lg bg-washi p-3 text-sm">
+              <div className="flex items-start gap-2">
+                <div className="min-w-0 flex-1">
+                  <ExampleLine ex={ex} />
+                </div>
+                <CopyButton
+                  text={text}
+                  copyKey={`grammar-example-${card.id}-${i}`}
+                  copiedKey={copiedKey}
+                  onCopy={onCopy}
+                />
+              </div>
             </div>
-            <p className="mt-1 text-sumi-muted">{ex.zh}</p>
-          </div>
-        ))}
+          )
+        })}
       </div>
     )
   }
