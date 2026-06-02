@@ -9,9 +9,15 @@ import { Study } from './pages/Study'
 import { CardForm } from './pages/CardForm'
 import { Settings } from './pages/Settings'
 
+function routerBasename(): string | undefined {
+  const base = import.meta.env.BASE_URL
+  if (base === '/') return undefined
+  return base.replace(/\/$/, '')
+}
+
 export default function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={routerBasename()}>
       <Routes>
         <Route element={<Layout />}>
           <Route index element={<Home />} />
