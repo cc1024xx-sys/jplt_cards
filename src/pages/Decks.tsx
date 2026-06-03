@@ -191,25 +191,40 @@ export function Decks() {
             const isCollapsed = collapsed[type]
             return (
               <section key={type} className="rounded-xl border border-card-border bg-white">
-                <button
-                  type="button"
-                  onClick={() => toggleCollapse(type)}
-                  className="flex w-full items-center justify-between px-4 py-3 text-left"
-                >
-                  <div>
-                    <p className="font-medium text-sumi">{CARD_TYPE_LABELS[type]}</p>
-                    <p className="text-xs text-sumi-muted">{list.length} 张卡片</p>
-                  </div>
-                  <span className="text-sumi-muted">{isCollapsed ? '展开' : '收起'}</span>
-                </button>
+                <div className="flex items-center gap-2 px-4 py-3">
+                  <button
+                    type="button"
+                    onClick={() => toggleCollapse(type)}
+                    className="flex min-w-0 flex-1 items-center justify-between text-left"
+                  >
+                    <div>
+                      <p className="font-medium text-sumi">{CARD_TYPE_LABELS[type]}</p>
+                      <p className="text-xs text-sumi-muted">{list.length} 张卡片</p>
+                    </div>
+                    <span className="shrink-0 pl-2 text-sumi-muted">
+                      {isCollapsed ? '展开' : '收起'}
+                    </span>
+                  </button>
+                  <Link
+                    to={`/cards/new?type=${type}`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="shrink-0 rounded border border-sakura/40 bg-sakura/10 px-2.5 py-1 text-xs text-sakura-deep no-underline hover:bg-sakura/20"
+                  >
+                    新建闪卡
+                  </Link>
+                </div>
                 {!isCollapsed && (
                   <div className="space-y-2 border-t border-card-border p-3">
                     {decksByType[type].map((deck) => {
                       const deckCards = list.filter((card) => card.deckId === deck.id)
-                      if (deckCards.length === 0) return null
                       return (
                         <div key={deck.id} className="rounded-lg border border-card-border bg-white p-2">
-                          <p className="mb-2 px-1 text-sm font-medium text-sumi">{deck.name}</p>
+                          <Link
+                            to={`/decks/${deck.id}`}
+                            className="mb-2 block truncate px-1 text-sm font-medium text-sumi no-underline hover:text-indigo-ja-dark"
+                          >
+                            {deck.name}
+                          </Link>
                           <div className="space-y-2">
                             {deckCards.map((card) => {
                               const brief = getCardBrief(card)
@@ -261,11 +276,16 @@ export function Decks() {
                                 </div>
                               )
                             })}
+                            {deckCards.length === 0 && (
+                              <p className="px-1 text-xs text-sumi-muted">此牌组暂无闪卡</p>
+                            )}
                           </div>
                         </div>
                       )
                     })}
-                    {list.length === 0 && <p className="text-sm text-sumi-muted">暂无卡片</p>}
+                    {decksByType[type].length === 0 && (
+                      <p className="text-sm text-sumi-muted">暂无牌组</p>
+                    )}
                   </div>
                 )}
               </section>

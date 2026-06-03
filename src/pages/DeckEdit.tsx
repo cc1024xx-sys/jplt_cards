@@ -87,6 +87,12 @@ export function DeckEdit() {
                     <div className="flex items-center justify-between gap-2">
                       <p className="min-w-0 truncate text-sm font-medium text-sumi">{deck.name}</p>
                       <div className="flex shrink-0 items-center gap-2">
+                        <Link
+                          to={`/cards/new?deckId=${deck.id}`}
+                          className="rounded border border-sakura/40 bg-sakura/10 px-2 py-1 text-xs text-sakura-deep no-underline hover:bg-sakura/20"
+                        >
+                          新建闪卡
+                        </Link>
                         <button
                           type="button"
                           onClick={() => startEdit(deck)}

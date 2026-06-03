@@ -81,22 +81,23 @@ export function DeckDetail() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <h1 className="text-xl font-medium">{deckName || '牌组'}</h1>
-        <Link
-          to={`/study?deck=${deckId}`}
-          className="rounded-lg bg-indigo-ja-dark px-3 py-1.5 text-sm text-white no-underline"
-        >
-          学习
-        </Link>
+        <div className="flex shrink-0 items-center gap-2">
+          <Link
+            to={`/cards/new?deckId=${deckId}`}
+            className="rounded-lg border border-sakura/50 bg-sakura/15 px-3 py-1.5 text-sm text-sakura-deep no-underline hover:bg-sakura/25"
+          >
+            新建闪卡
+          </Link>
+          <Link
+            to={`/study?deck=${deckId}`}
+            className="rounded-lg bg-indigo-ja-dark px-3 py-1.5 text-sm text-white no-underline hover:bg-indigo-ja"
+          >
+            学习
+          </Link>
+        </div>
       </div>
-
-      <Link
-        to={`/cards/new?deckId=${deckId}`}
-        className="block rounded-xl border border-dashed border-sakura/50 py-3 text-center text-sm text-sakura-deep no-underline"
-      >
-        ＋ 添加卡片到此牌组
-      </Link>
 
       <input
         value={search}
