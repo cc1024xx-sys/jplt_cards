@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { FlashcardPreview } from '../components/FlashcardPreview'
+import { Flashcard } from '../components/Flashcard'
 import { LinkedCardsSection } from '../components/LinkedCardsSection'
-import { deleteCard, getAllDecks, getCardsByDeck, linkCards, unlinkCards } from '../lib/db'
+import { deleteCard, getAllDecks, getCardsByDeck, linkCards, saveCard, unlinkCards } from '../lib/db'
+import { applyFamiliarity } from '../lib/review-scheduler'
 import {
   CARD_TYPE_LABELS,
   FAMILIARITY_LABELS,
@@ -10,6 +11,7 @@ import {
   type Card,
   type CardType,
   type Deck,
+  type Familiarity,
 } from '../lib/types'
 
 export function Decks() {
@@ -142,6 +144,17 @@ export function Decks() {
     if (linkingCardId === cardId) setLinkingCardId(null)
     if (viewingCardId === cardId) setViewingCardId(null)
     await refreshCards()
+  }
+
+  const handleViewingRate = async (familiarity: Familiarity) => {
+    if (!viewingCard) return
+    const updated: Card = {
+      ...viewingCard,
+      review: applyFamiliarity(viewingCard.review, familiarity),
+      updatedAt: new Date().toISOString(),
+    }
+    await saveCard(updated)
+    setCards((prev) => prev.map((c) => (c.id === updated.id ? updated : c)))
   }
 
   if (loading) return <p className="text-center text-sumi-muted">加载中…</p>
@@ -307,23 +320,33 @@ export function Decks() {
             aria-modal="true"
             aria-labelledby="card-view-title"
           >
-            <div className="mb-3 flex items-center justify-between">
+            <div className="mb-3 flex items-center justify-between gap-2">
               <h2 id="card-view-title" className="text-base font-medium text-sumi">
-                闪卡详情
+                复习
               </h2>
-              <button
-                type="button"
-                onClick={() => setViewingCardId(null)}
-                className="text-sm text-sumi-muted hover:text-sumi"
-              >
-                关闭
-              </button>
+              <div className="flex items-center gap-2">
+                <Link
+                  to={`/cards/${viewingCard.id}/edit`}
+                  className="rounded border border-card-border bg-white px-2 py-1 text-xs text-indigo-ja-dark no-underline hover:bg-washi"
+                >
+                  编辑
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => setViewingCardId(null)}
+                  className="text-sm text-sumi-muted hover:text-sumi"
+                >
+                  关闭
+                </button>
+              </div>
             </div>
-            <FlashcardPreview
-              key={viewingCard.id}
+            <Flashcard
+              key={`${viewingCard.id}-${viewingCard.updatedAt}`}
               card={viewingCard}
-              frontOnly
-              editHref={`/cards/${viewingCard.id}/edit`}
+              index={0}
+              total={1}
+              compact
+              onRate={(f) => void handleViewingRate(f)}
             />
             <div className="mt-4">
               <LinkedCardsSection

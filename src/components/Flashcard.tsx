@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { Card, Familiarity } from '../lib/types'
+import { FAMILIARITY_LABELS } from '../lib/types'
 import { CardBack, CardFront } from './CardFaces'
 import { FamiliarityBar } from './FamiliarityBar'
 
@@ -8,9 +9,11 @@ interface FlashcardProps {
   index: number
   total: number
   onRate: (familiarity: Familiarity) => void
+  /** 牌组浏览：显示当前熟悉度，评分仅更新状态不切换下一张 */
+  compact?: boolean
 }
 
-export function Flashcard({ card, index, total, onRate }: FlashcardProps) {
+export function Flashcard({ card, index, total, onRate, compact = false }: FlashcardProps) {
   const [flipped, setFlipped] = useState(false)
   const [copiedKey, setCopiedKey] = useState<string | null>(null)
 
@@ -38,9 +41,18 @@ export function Flashcard({ card, index, total, onRate }: FlashcardProps) {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between text-sm text-sumi-muted">
-        <span>
-          {index + 1} / {total}
-        </span>
+        {compact ? (
+          <span>
+            熟悉程度：
+            <span className="font-medium text-indigo-ja-dark">
+              {FAMILIARITY_LABELS[card.review.familiarity]}
+            </span>
+          </span>
+        ) : (
+          <span>
+            {index + 1} / {total}
+          </span>
+        )}
         <span className="rounded-full bg-indigo-ja/10 px-2 py-0.5 text-indigo-ja-dark">
           {card.type === 'vocabulary' && '词语'}
           {card.type === 'grammar' && '语法'}
@@ -66,7 +78,9 @@ export function Flashcard({ card, index, total, onRate }: FlashcardProps) {
       ) : (
         <>
           <p className="text-center text-sm text-sumi-muted">
-            标记熟悉程度后自动下一张，也可使用下方按钮手动切换
+            {compact
+              ? '选择熟悉程度以更新复习状态'
+              : '标记熟悉程度后自动下一张，也可使用下方按钮手动切换'}
           </p>
           <FamiliarityBar onSelect={handleRate} />
         </>
