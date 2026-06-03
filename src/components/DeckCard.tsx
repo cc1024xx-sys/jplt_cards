@@ -13,6 +13,7 @@ export function DeckCard({ deck, cardCount, japanesePreview }: DeckCardProps) {
     vocabulary: 'bg-sakura/20 text-sakura-deep',
     grammar: 'bg-indigo-ja/15 text-indigo-ja-dark',
     corpus: 'bg-matcha/20 text-matcha-deep',
+    contrast: 'bg-amber-100/80 text-amber-900',
   }
 
   return (

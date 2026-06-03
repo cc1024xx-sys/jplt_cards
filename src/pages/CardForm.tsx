@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { ContrastFormFields, emptyContrastEntry } from '../components/ContrastFields'
 import { CorpusPhraseFields, CorpusWordFields } from '../components/CorpusFields'
 import { ExampleFields } from '../components/ExampleFields'
 import { LinkCardsModal } from '../components/LinkCardsModal'
 import { LinkedCardsSection } from '../components/LinkedCardsSection'
-import { getAllCards, getAllDecks, getCard, saveCard } from '../lib/db'
+import { getAllCards, getAllDecks, getCard, saveCard, saveDeck } from '../lib/db'
 import { normalizeExampleList } from '../lib/example-text'
 import { generateId } from '../lib/id'
 import {
@@ -12,6 +13,8 @@ import {
   createDefaultReview,
   type Card,
   type CardType,
+  type ContrastCard,
+  type ContrastEntry,
   type CorpusCard,
   type CorpusPhrase,
   type CorpusWord,
@@ -52,11 +55,23 @@ export function CardForm() {
   const [corpusWords, setCorpusWords] = useState<CorpusWord[]>([])
   const [corpusPhrases, setCorpusPhrases] = useState<CorpusPhrase[]>([])
 
+  // Contrast
+  const [contrastTitle, setContrastTitle] = useState('')
+  const [contrastPrompt, setContrastPrompt] = useState('')
+  const [contrastItems, setContrastItems] = useState<ContrastEntry[]>([
+    emptyContrastEntry(),
+    emptyContrastEntry(),
+  ])
+  const [contrastPitfallsText, setContrastPitfallsText] = useState('')
+
   const [tags, setTags] = useState('')
   const [editingCard, setEditingCard] = useState<Card | null>(null)
   const [linkedCardIds, setLinkedCardIds] = useState<string[]>([])
   const [allCards, setAllCards] = useState<Card[]>([])
   const [showLinkModal, setShowLinkModal] = useState(false)
+  const [showNewDeckForm, setShowNewDeckForm] = useState(false)
+  const [newDeckName, setNewDeckName] = useState('')
+  const [creatingDeck, setCreatingDeck] = useState(false)
 
   const normalizeDecks = (list: Deck[]): Deck[] => {
     // 按 id 与「名称+类型」双重去重，避免选择器中出现重复牌组项。
@@ -79,18 +94,68 @@ export function CardForm() {
     return [...byNameType.values()]
   }
 
-  const loadDecks = useCallback(async () => {
+  const loadDecks = useCallback(async (): Promise<Deck[]> => {
     const list = normalizeDecks(await getAllDecks())
     setDecks(list)
-    setDeckId((prev) => {
-      if (prev && list.some((d) => d.id === prev)) return prev
-      return list[0]?.id ?? ''
-    })
+    return list
   }, [])
 
+  const pickDeckForType = useCallback((list: Deck[], type: CardType, preferredId?: string) => {
+    const matches = list.filter((d) => d.cardType === type)
+    if (preferredId && matches.some((d) => d.id === preferredId)) return preferredId
+    return matches[0]?.id ?? ''
+  }, [])
+
+  const createDeckForType = useCallback(
+    async (name: string, type: CardType): Promise<string | null> => {
+      const trimmed = name.trim()
+      if (!trimmed) {
+        alert('请输入牌组名称')
+        return null
+      }
+      const now = new Date().toISOString()
+      const deck: Deck = {
+        id: generateId(),
+        name: trimmed,
+        cardType: type,
+        createdAt: now,
+        updatedAt: now,
+      }
+      await saveDeck(deck)
+      await loadDecks()
+      setDeckId(deck.id)
+      setShowNewDeckForm(false)
+      setNewDeckName('')
+      return deck.id
+    },
+    [loadDecks],
+  )
+
   useEffect(() => {
-    void loadDecks()
-  }, [loadDecks])
+    void loadDecks().then((list) => {
+      if (isEdit) return
+      if (presetDeckId) {
+        const preset = list.find((d) => d.id === presetDeckId)
+        if (preset) {
+          setCardType(preset.cardType)
+          setDeckId(preset.id)
+          setShowNewDeckForm(false)
+          return
+        }
+      }
+      const typeParam = searchParams.get('type') as CardType | null
+      const initialType =
+        typeParam && typeParam in CARD_TYPE_LABELS ? typeParam : cardType
+      if (typeParam && typeParam in CARD_TYPE_LABELS) {
+        setCardType(typeParam)
+      }
+      const id = pickDeckForType(list, initialType, undefined)
+      setDeckId(id)
+      setShowNewDeckForm(!id)
+    })
+    // 仅在新卡初次挂载时根据 URL 预设牌组/类型
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadDecks, isEdit, presetDeckId, pickDeckForType])
 
   useEffect(() => {
     if (!cardId) return
@@ -118,10 +183,20 @@ export function CardForm() {
         setGrammarExamples(
           card.back.examples.length > 0 ? card.back.examples : [{ ja: '', zh: '' }],
         )
-      } else {
+      } else if (card.type === 'corpus') {
         setScenario(card.front.scenario)
         setCorpusWords(card.back.words)
         setCorpusPhrases(card.back.phrases)
+      } else {
+        setContrastTitle(card.front.title)
+        setContrastPrompt(card.front.prompt ?? '')
+        setContrastItems(
+          card.back.items.map((item) => ({
+            ...item,
+            examples: item.examples.length > 0 ? item.examples : [{ ja: '', zh: '' }],
+          })),
+        )
+        setContrastPitfallsText((card.back.pitfalls ?? []).join('\n'))
       }
       setEditingCard(card)
       setLinkedCardIds(card.linkedCardIds ?? [])
@@ -188,12 +263,33 @@ export function CardForm() {
     setGrammarExamples([{ ja: '', zh: '' }])
     setCorpusWords([])
     setCorpusPhrases([])
+    setContrastItems([emptyContrastEntry(), emptyContrastEntry()])
+    setContrastPitfallsText('')
   }
+
+  const normalizeContrastEntry = (entry: ContrastEntry): ContrastEntry => ({
+    label: entry.label.trim(),
+    subtitle: entry.subtitle?.trim() || undefined,
+    examples: normalizeExampleList(entry.examples),
+  })
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!deckId) {
-      alert('请先创建并选择牌组')
+
+    let targetDeckId = deckId
+    if (!targetDeckId && !isEdit) {
+      if (newDeckName.trim()) {
+        setCreatingDeck(true)
+        targetDeckId = (await createDeckForType(newDeckName, cardType)) ?? ''
+        setCreatingDeck(false)
+      }
+      if (!targetDeckId) {
+        alert('请选择牌组，或填写名称新建牌组')
+        return
+      }
+    }
+    if (!targetDeckId) {
+      alert('请选择牌组')
       return
     }
 
@@ -212,11 +308,10 @@ export function CardForm() {
 
     const vocabExampleList = normalizeExampleList(vocabExamples)
     const grammarExampleList = normalizeExampleList(grammarExamples)
-
     if (cardType === 'vocabulary') {
       card = {
         id,
-        deckId,
+        deckId: targetDeckId,
         type: 'vocabulary',
         tags: tagList,
         createdAt,
@@ -234,7 +329,7 @@ export function CardForm() {
     } else if (cardType === 'grammar') {
       card = {
         id,
-        deckId,
+        deckId: targetDeckId,
         type: 'grammar',
         tags: tagList,
         createdAt,
@@ -248,13 +343,13 @@ export function CardForm() {
           examples: grammarExampleList,
         },
       } satisfies GrammarCard
-    } else {
+    } else if (cardType === 'corpus') {
       const words = normalizeCorpusWords(corpusWords)
       const phrases = normalizeCorpusPhrases(corpusPhrases)
 
       card = {
         id,
-        deckId,
+        deckId: targetDeckId,
         type: 'corpus',
         tags: tagList,
         createdAt,
@@ -264,42 +359,73 @@ export function CardForm() {
         front: { scenario: scenario.trim() },
         back: { words, phrases },
       } satisfies CorpusCard
+    } else {
+      const items = contrastItems
+        .map(normalizeContrastEntry)
+        .filter((item) => item.label)
+      if (items.length < 2) {
+        alert('请至少填写 2 个对比项')
+        return
+      }
+
+      const pitfalls = parseLines(contrastPitfallsText)
+
+      card = {
+        id,
+        deckId: targetDeckId,
+        type: 'contrast',
+        tags: tagList,
+        createdAt,
+        updatedAt: now,
+        review,
+        linkedCardIds: savedLinkedIds,
+        front: {
+          title: contrastTitle.trim(),
+          prompt: contrastPrompt.trim() || undefined,
+        },
+        back: {
+          items,
+          pitfalls: pitfalls.length > 0 ? pitfalls : undefined,
+        },
+      } satisfies ContrastCard
     }
 
     await saveCard(card)
-    navigate(deckId ? `/decks/${deckId}` : '/decks')
+    navigate(`/decks/${targetDeckId}`)
   }
 
   if (loading) return <p className="text-center text-sumi-muted">加载中…</p>
 
   const filteredDecks = decks.filter((d) => d.cardType === cardType)
   const selectDecks = isEdit ? decks : filteredDecks
+  const canSubmitNew =
+    isEdit || selectDecks.length > 0 || Boolean(deckId) || newDeckName.trim().length > 0
+
+  const handleTypeChange = (t: CardType) => {
+    setCardType(t)
+    const nextDeckId = pickDeckForType(decks, t, deckId)
+    setDeckId(nextDeckId)
+    setShowNewDeckForm(!nextDeckId)
+    resetStructuredFields()
+  }
+
+  const handleCreateDeckClick = async () => {
+    setCreatingDeck(true)
+    await createDeckForType(newDeckName, cardType)
+    setCreatingDeck(false)
+  }
 
   return (
     <div>
       <h1 className="mb-4 text-xl font-medium">{isEdit ? '编辑闪卡' : '新建闪卡'}</h1>
 
-      {decks.length === 0 ? (
-        <p className="text-sumi-muted">
-          请先{' '}
-          <Link to="/decks/new" className="text-indigo-ja-dark">
-            创建牌组
-          </Link>
-        </p>
-      ) : (
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           {!isEdit && (
             <label className="flex flex-col gap-1">
               <span className="text-sm text-sumi-muted">类型</span>
               <select
                 value={cardType}
-                onChange={(e) => {
-                  const t = e.target.value as CardType
-                  setCardType(t)
-                  const match = decks.find((d) => d.cardType === t)
-                  if (match) setDeckId(match.id)
-                  if (!isEdit) resetStructuredFields()
-                }}
+                onChange={(e) => handleTypeChange(e.target.value as CardType)}
                 className="rounded-lg border border-card-border bg-white px-3 py-2"
               >
                 {(Object.keys(CARD_TYPE_LABELS) as CardType[]).map((t) => (
@@ -311,29 +437,70 @@ export function CardForm() {
             </label>
           )}
 
-          <label className="flex flex-col gap-1">
-            <span className="text-sm text-sumi-muted">牌组</span>
-            <select
-              value={deckId}
-              onChange={(e) => setDeckId(e.target.value)}
-              onFocus={() => {
-                void loadDecks()
-              }}
-              className="rounded-lg border border-card-border bg-white px-3 py-2"
-              required
-            >
-              {selectDecks.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name}（{CARD_TYPE_LABELS[d.cardType]}）
-                </option>
-              ))}
-            </select>
-            {!isEdit && selectDecks.length === 0 && (
-              <span className="text-xs text-sakura-deep">
-                当前类型暂无牌组，请先创建同类型牌组。
-              </span>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm text-sumi-muted">牌组</span>
+              {!isEdit && (
+                <button
+                  type="button"
+                  onClick={() => setShowNewDeckForm((v) => !v)}
+                  className="text-xs text-indigo-ja-dark hover:underline"
+                >
+                  {showNewDeckForm ? '取消新建' : '＋ 新建牌组'}
+                </button>
+              )}
+            </div>
+
+            {selectDecks.length > 0 && (
+              <select
+                value={deckId}
+                onChange={(e) => setDeckId(e.target.value)}
+                onFocus={() => {
+                  void loadDecks()
+                }}
+                className="rounded-lg border border-card-border bg-white px-3 py-2"
+                required={isEdit || (!showNewDeckForm && !newDeckName.trim())}
+              >
+                {!isEdit && !deckId && <option value="">选择牌组</option>}
+                {selectDecks.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {isEdit ? `${d.name}（${CARD_TYPE_LABELS[d.cardType]}）` : d.name}
+                  </option>
+                ))}
+              </select>
             )}
-          </label>
+
+            {!isEdit && selectDecks.length === 0 && !showNewDeckForm && (
+              <p className="text-xs text-sumi-muted">当前类型暂无牌组，请新建牌组。</p>
+            )}
+
+            {!isEdit && (showNewDeckForm || selectDecks.length === 0) && (
+              <div className="rounded-xl border border-dashed border-card-border bg-washi/50 p-3">
+                <p className="mb-2 text-xs text-sumi-muted">
+                  新建 {CARD_TYPE_LABELS[cardType]} 牌组
+                </p>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                  <input
+                    value={newDeckName}
+                    onChange={(e) => setNewDeckName(e.target.value)}
+                    placeholder="牌组名称"
+                    className="min-w-0 flex-1 rounded-lg border border-card-border bg-white px-3 py-2"
+                  />
+                  <button
+                    type="button"
+                    disabled={creatingDeck || !newDeckName.trim()}
+                    onClick={() => void handleCreateDeckClick()}
+                    className="shrink-0 rounded-lg border border-indigo-ja/30 bg-white px-4 py-2 text-sm text-indigo-ja-dark hover:bg-washi disabled:opacity-50"
+                  >
+                    {creatingDeck ? '创建中…' : '创建牌组'}
+                  </button>
+                </div>
+                <p className="mt-2 text-xs text-sumi-muted">
+                  也可直接填写名称后点「创建」闪卡，将一并新建牌组。
+                </p>
+              </div>
+            )}
+          </div>
 
           {cardType === 'vocabulary' && (
             <>
@@ -375,6 +542,19 @@ export function CardForm() {
             </>
           )}
 
+          {cardType === 'contrast' && (
+            <ContrastFormFields
+              title={contrastTitle}
+              onTitleChange={setContrastTitle}
+              prompt={contrastPrompt}
+              onPromptChange={setContrastPrompt}
+              items={contrastItems}
+              onItemsChange={setContrastItems}
+              pitfallsText={contrastPitfallsText}
+              onPitfallsTextChange={setContrastPitfallsText}
+            />
+          )}
+
           <Field label="标签（逗号分隔，可选）" value={tags} onChange={setTags} />
 
           {isEdit && linkingCardSnapshot && (
@@ -398,13 +578,12 @@ export function CardForm() {
 
           <button
             type="submit"
-            disabled={!isEdit && selectDecks.length === 0}
-            className="rounded-xl bg-indigo-ja-dark py-3 text-white hover:bg-indigo-ja"
+            disabled={!isEdit && !canSubmitNew}
+            className="rounded-xl bg-indigo-ja-dark py-3 text-white hover:bg-indigo-ja disabled:opacity-50"
           >
-            {isEdit ? '保存' : '创建'}
+            {isEdit ? '保存' : creatingDeck ? '处理中…' : '创建'}
           </button>
         </form>
-      )}
 
       {showLinkModal && linkingCardSnapshot && (
         <LinkCardsModal

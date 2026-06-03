@@ -3,6 +3,7 @@ import {
   CARD_TYPE_LABELS,
   FAMILIARITY_LABELS,
   getCardBrief,
+  isContrastCard,
   isCorpusCard,
   isGrammarCard,
   isVocabularyCard,
@@ -100,6 +101,36 @@ function LinkedCardScenariosAndExamples({ card }: { card: Card }) {
       <div className="mt-2 space-y-2 border-t border-card-border/60 pt-2">
         {scenarios.length > 0 && <ScenariosBlock items={scenarios} />}
         {examples.length > 0 && <ExamplesBlock examples={examples} />}
+      </div>
+    )
+  }
+
+  if (isContrastCard(card)) {
+    const { items, pitfalls = [] } = card.back
+    const hasExamples = items.some((entry) => entry.examples.length > 0)
+    if (!hasExamples && pitfalls.length === 0) return null
+    return (
+      <div className="mt-2 space-y-2 border-t border-card-border/60 pt-2">
+        {items.map((entry, idx) =>
+          entry.examples.length > 0 ? (
+            <div key={idx}>
+              <p className="mb-1 text-xs font-medium text-sakura-deep">
+                对比项 {idx + 1}：{entry.label}
+              </p>
+              <ExamplesBlock examples={entry.examples} />
+            </div>
+          ) : null,
+        )}
+        {pitfalls.length > 0 && (
+          <div>
+            <p className="mb-1 text-xs font-medium text-sakura-deep">易混点</p>
+            <ul className="list-inside list-disc text-sm text-sumi">
+              {pitfalls.map((p, i) => (
+                <li key={i}>{p}</li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
     )
   }

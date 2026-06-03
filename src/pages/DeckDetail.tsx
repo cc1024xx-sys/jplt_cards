@@ -213,5 +213,6 @@ export function DeckDetail() {
 function CardPreview({ card }: { card: Card }) {
   if (card.type === 'vocabulary') return <span>{card.front.meaningZh}</span>
   if (card.type === 'grammar') return <span>{card.front.pattern}</span>
+  if (card.type === 'contrast') return <span>{card.front.title}</span>
   return <span>{card.front.scenario}</span>
 }

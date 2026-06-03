@@ -24,6 +24,7 @@ export function Decks() {
     vocabulary: true,
     grammar: true,
     corpus: true,
+    contrast: true,
   })
 
   useEffect(() => {
@@ -56,6 +57,7 @@ export function Decks() {
       vocabulary: [],
       grammar: [],
       corpus: [],
+      contrast: [],
     }
     for (const card of filteredCards) {
       base[card.type].push(card)
@@ -68,6 +70,7 @@ export function Decks() {
       vocabulary: [],
       grammar: [],
       corpus: [],
+      contrast: [],
     }
     for (const deck of decks) {
       base[deck.cardType].push(deck)
@@ -75,7 +78,7 @@ export function Decks() {
     return base
   }, [decks])
 
-  const groupOrder: CardType[] = ['vocabulary', 'grammar', 'corpus']
+  const groupOrder: CardType[] = ['vocabulary', 'grammar', 'corpus', 'contrast']
 
   const toggleCollapse = (type: CardType) => {
     setCollapsed((prev) => ({ ...prev, [type]: !prev[type] }))

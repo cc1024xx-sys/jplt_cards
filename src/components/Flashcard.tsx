@@ -45,6 +45,7 @@ export function Flashcard({ card, index, total, onRate }: FlashcardProps) {
           {card.type === 'vocabulary' && '词语'}
           {card.type === 'grammar' && '语法'}
           {card.type === 'corpus' && '语料库'}
+          {card.type === 'contrast' && '辨析'}
         </span>
       </div>
 

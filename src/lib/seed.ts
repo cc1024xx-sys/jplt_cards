@@ -10,6 +10,7 @@ export async function seedSampleData(): Promise<void> {
   const vocabDeckId = generateId()
   const grammarDeckId = generateId()
   const corpusDeckId = generateId()
+  const contrastDeckId = generateId()
 
   await saveDeck({
     id: vocabDeckId,
@@ -29,6 +30,13 @@ export async function seedSampleData(): Promise<void> {
     id: corpusDeckId,
     name: '便利店口语',
     cardType: 'corpus',
+    createdAt: now,
+    updatedAt: now,
+  })
+  await saveDeck({
+    id: contrastDeckId,
+    name: '易混语法辨析',
+    cardType: 'contrast',
     createdAt: now,
     updatedAt: now,
   })
@@ -91,6 +99,41 @@ export async function seedSampleData(): Promise<void> {
         { ja: 'これください', zh: '请给我这个' },
         { ja: '袋いりますか', zh: '需要袋子吗', note: '店员常用问句' },
         { ja: '大丈夫です', zh: '不用了/没关系' },
+      ],
+    },
+  })
+
+  await saveCard({
+    id: generateId(),
+    deckId: contrastDeckId,
+    type: 'contrast',
+    tags: ['示例', '语法'],
+    createdAt: now,
+    updatedAt: now,
+    review: createDefaultReview(),
+    linkedCardIds: [],
+    front: {
+      title: 'のに vs なのに',
+      prompt: '两者都表示转折，有何区别？',
+    },
+    back: {
+      items: [
+        {
+          label: 'のに',
+          examples: [
+            { ja: '約束したのに、来なかった。', zh: '明明约好了，却没来。' },
+          ],
+        },
+        {
+          label: 'なのに',
+          examples: [
+            { ja: '雨なのに、傘を持ってこなかった。', zh: '明明下雨了，却没带伞来。' },
+          ],
+        },
+      ],
+      pitfalls: [
+        'のに接普通形；なのに接な形/名词+な，语气更意外、更不满。',
+        'なのに比のに更强调意料之外的转折，常带埋怨语气。',
       ],
     },
   })

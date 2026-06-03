@@ -56,8 +56,9 @@ export function DeckEdit() {
     vocabulary: decks.filter((d) => d.cardType === 'vocabulary'),
     grammar: decks.filter((d) => d.cardType === 'grammar'),
     corpus: decks.filter((d) => d.cardType === 'corpus'),
+    contrast: decks.filter((d) => d.cardType === 'contrast'),
   }
-  const groupOrder: CardType[] = ['vocabulary', 'grammar', 'corpus']
+  const groupOrder: CardType[] = ['vocabulary', 'grammar', 'corpus', 'contrast']
 
   if (loading) return <p className="text-center text-sumi-muted">加载中…</p>
 

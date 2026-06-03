@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { ExampleLine } from './ExampleDisplay'
 import type { Card } from '../lib/types'
 import { formatExampleText } from '../lib/example-text'
-import { isCorpusCard, isGrammarCard, isVocabularyCard } from '../lib/types'
+import { isContrastCard, isCorpusCard, isGrammarCard, isVocabularyCard } from '../lib/types'
 
 export function CardFront({
   card,
@@ -56,6 +56,25 @@ export function CardFront({
             onCopy={onCopy}
           />
         </div>
+      </div>
+    )
+  }
+  if (isContrastCard(card)) {
+    const copyText = [card.front.title, card.front.prompt].filter(Boolean).join('\n')
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-4 px-2">
+        <div className="flex items-center gap-2">
+          <p className="text-center text-xl font-medium text-sumi">{card.front.title}</p>
+          <CopyButton
+            text={copyText}
+            copyKey={`front-contrast-title-${card.id}`}
+            copiedKey={copiedKey}
+            onCopy={onCopy}
+          />
+        </div>
+        {card.front.prompt && (
+          <p className="text-center text-sm text-sumi-muted">{card.front.prompt}</p>
+        )}
       </div>
     )
   }
@@ -161,6 +180,58 @@ export function CardBack({
             </div>
           )
         })}
+      </div>
+    )
+  }
+  if (isContrastCard(card)) {
+    return (
+      <div className="flex max-h-[min(60vh,480px)] flex-col gap-4 overflow-y-auto pr-1">
+        {card.back.items.map((entry, index) => (
+          <div key={index} className="rounded-xl border border-indigo-ja/15 bg-washi/80 p-3">
+            <div className="mb-2 flex items-center gap-2">
+              <span className="text-xs font-medium text-indigo-ja-dark">对比项 {index + 1}</span>
+              <p className="text-lg font-medium text-sumi">{entry.label}</p>
+              <CopyButton
+                text={entry.label}
+                copyKey={`contrast-label-${card.id}-${index + 1}`}
+                copiedKey={copiedKey}
+                onCopy={onCopy}
+              />
+            </div>
+            {entry.subtitle && (
+              <p className="mb-2 text-sm text-sumi-muted">{entry.subtitle}</p>
+            )}
+            {entry.examples.map((ex, i) => {
+              const text = formatExampleText(ex)
+              if (!text) return null
+              return (
+                <div key={i} className="mt-2 rounded-lg bg-white p-3 text-sm">
+                  <div className="flex items-start gap-2">
+                    <div className="min-w-0 flex-1">
+                      <ExampleLine ex={ex} />
+                    </div>
+                    <CopyButton
+                      text={text}
+                      copyKey={`contrast-example-${card.id}-${index + 1}-${i}`}
+                      copiedKey={copiedKey}
+                      onCopy={onCopy}
+                    />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        ))}
+        {(card.back.pitfalls?.length ?? 0) > 0 && (
+          <div>
+            <p className="mb-1 text-xs font-medium text-sakura-deep">易混点</p>
+            <ul className="list-inside list-disc text-sm text-sumi">
+              {card.back.pitfalls!.map((p, i) => (
+                <li key={i}>{p}</li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
     )
   }

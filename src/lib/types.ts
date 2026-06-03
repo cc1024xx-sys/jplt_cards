@@ -1,4 +1,4 @@
-export type CardType = 'vocabulary' | 'grammar' | 'corpus'
+export type CardType = 'vocabulary' | 'grammar' | 'corpus' | 'contrast'
 export type Familiarity = 'new' | 'mastered' | 'familiar' | 'unfamiliar'
 
 export interface CardReviewState {
@@ -64,6 +64,25 @@ export interface CorpusBack {
   phrases: CorpusPhrase[]
 }
 
+/** 背面单侧对比项：表达 + 例句 */
+export interface ContrastEntry {
+  label: string
+  subtitle?: string
+  examples: ExamplePair[]
+}
+
+export interface ContrastFront {
+  /** 辨析主题 */
+  title: string
+  /** 提示语 */
+  prompt?: string
+}
+
+export interface ContrastBack {
+  items: ContrastEntry[]
+  pitfalls?: string[]
+}
+
 export interface BaseCard {
   id: string
   deckId: string
@@ -93,7 +112,13 @@ export interface CorpusCard extends BaseCard {
   back: CorpusBack
 }
 
-export type Card = VocabularyCard | GrammarCard | CorpusCard
+export interface ContrastCard extends BaseCard {
+  type: 'contrast'
+  front: ContrastFront
+  back: ContrastBack
+}
+
+export type Card = VocabularyCard | GrammarCard | CorpusCard | ContrastCard
 
 export interface BackupFile {
   version: number
@@ -106,6 +131,7 @@ export const CARD_TYPE_LABELS: Record<CardType, string> = {
   vocabulary: '词汇',
   grammar: '语法',
   corpus: '语料库',
+  contrast: '辨析',
 }
 
 export const FAMILIARITY_LABELS: Record<Familiarity, string> = {
@@ -136,9 +162,14 @@ export function isCorpusCard(card: Card): card is CorpusCard {
   return card.type === 'corpus'
 }
 
+export function isContrastCard(card: Card): card is ContrastCard {
+  return card.type === 'contrast'
+}
+
 export function getCardFrontText(card: Card): string {
   if (card.type === 'vocabulary') return card.front.meaningZh
   if (card.type === 'grammar') return card.front.pattern
+  if (card.type === 'contrast') return card.front.title
   return card.front.scenario
 }
 
@@ -149,6 +180,10 @@ export function getCardBrief(card: Card): { ja: string; zh: string } {
   }
   if (card.type === 'grammar') {
     return { ja: card.front.pattern, zh: card.back.meaningZh }
+  }
+  if (card.type === 'contrast') {
+    const labels = card.back.items.map((i) => i.label).filter(Boolean).join(' · ')
+    return { ja: labels || card.front.title, zh: card.front.prompt ?? card.front.title }
   }
   const phrase = card.back.phrases[0]
   if (phrase) return { ja: phrase.ja, zh: phrase.zh }
@@ -169,6 +204,17 @@ export function getCardSearchText(card: Card): string {
     parts.push(card.back.meaningZh, ...card.back.scenarios)
     for (const ex of card.back.examples) {
       parts.push(ex.ja, ex.zh)
+    }
+  } else if (card.type === 'contrast') {
+    parts.push(card.front.title, card.front.prompt ?? '')
+    for (const entry of card.back.items) {
+      parts.push(entry.label, entry.subtitle ?? '')
+      for (const ex of entry.examples) {
+        parts.push(ex.ja, ex.zh)
+      }
+    }
+    for (const p of card.back.pitfalls ?? []) {
+      parts.push(p)
     }
   } else {
     for (const w of card.back.words) {

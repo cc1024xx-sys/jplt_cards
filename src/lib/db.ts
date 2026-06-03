@@ -1,4 +1,5 @@
 import Dexie, { type Table } from 'dexie'
+import { migrateContrastCard } from './migrate-contrast-card'
 import { getCardSearchText, type Card, type Deck } from './types'
 
 export class JapaneseLearningDB extends Dexie {
@@ -27,6 +28,28 @@ export class JapaneseLearningDB extends Dexie {
             }
           }),
       )
+    this.version(3).upgrade((tx) =>
+      tx
+        .table('cards')
+        .toCollection()
+        .modify((card: Card) => {
+          const migrated = migrateContrastCard(card)
+          if (migrated !== card) {
+            Object.assign(card, migrated)
+          }
+        }),
+    )
+    this.version(4).upgrade((tx) =>
+      tx
+        .table('cards')
+        .toCollection()
+        .modify((card: Card) => {
+          const migrated = migrateContrastCard(card)
+          if (migrated !== card) {
+            Object.assign(card, migrated)
+          }
+        }),
+    )
   }
 }
 
@@ -52,11 +75,13 @@ export async function deleteDeck(id: string): Promise<void> {
 }
 
 export async function getCardsByDeck(deckId: string): Promise<Card[]> {
-  return db.cards.where('deckId').equals(deckId).toArray()
+  const cards = await db.cards.where('deckId').equals(deckId).toArray()
+  return cards.map(normalizeCard)
 }
 
 export async function getAllCards(): Promise<Card[]> {
-  return db.cards.toArray()
+  const cards = await db.cards.toArray()
+  return cards.map(normalizeCard)
 }
 
 export async function searchCards(query: string, deckId?: string): Promise<Card[]> {
@@ -66,8 +91,18 @@ export async function searchCards(query: string, deckId?: string): Promise<Card[
   return cards.filter((card) => getCardSearchText(card).includes(keyword))
 }
 
+function normalizeCard(card: Card): Card {
+  return migrateContrastCard(card)
+}
+
 export async function getCard(id: string): Promise<Card | undefined> {
-  return db.cards.get(id)
+  const card = await db.cards.get(id)
+  if (!card) return undefined
+  const normalized = normalizeCard(card)
+  if (normalized !== card) {
+    await db.cards.put(normalized)
+  }
+  return normalized
 }
 
 export async function saveCard(card: Card): Promise<void> {
@@ -135,7 +170,12 @@ export async function getStats(): Promise<{
   todayEnd.setHours(23, 59, 59, 999)
 
   let dueCount = 0
-  const byType: Record<string, number> = { vocabulary: 0, grammar: 0, corpus: 0 }
+  const byType: Record<string, number> = {
+    vocabulary: 0,
+    grammar: 0,
+    corpus: 0,
+    contrast: 0,
+  }
   const byFamiliarity: Record<string, number> = {
     new: 0,
     mastered: 0,

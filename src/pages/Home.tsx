@@ -44,7 +44,7 @@ export function Home() {
       <section>
         <h2 className="mb-3 text-sm font-medium text-sumi-muted">按类型复习</h2>
         <div className="grid gap-3">
-          {(['vocabulary', 'grammar', 'corpus'] as CardType[]).map((type) => (
+          {(['vocabulary', 'grammar', 'corpus', 'contrast'] as CardType[]).map((type) => (
             <Link
               key={type}
               to={`/study?type=${type}`}
