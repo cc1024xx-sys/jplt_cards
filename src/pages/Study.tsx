@@ -48,6 +48,12 @@ export function Study() {
       .filter((card): card is Card => Boolean(card))
   }, [current, allCards])
 
+  const goToIndex = useCallback((nextIndex: number) => {
+    if (nextIndex < 0 || nextIndex >= queue.length) return
+    setIndex(nextIndex)
+    setDone(false)
+  }, [queue.length])
+
   const handleRate = useCallback(
     async (familiarity: Familiarity) => {
       const card = queue[index]
@@ -107,6 +113,25 @@ export function Study() {
         total={queue.length}
         onRate={handleRate}
       />
+
+      <div className="mt-3 flex items-center justify-center gap-3">
+        <button
+          type="button"
+          disabled={index === 0}
+          onClick={() => goToIndex(index - 1)}
+          className="rounded-lg border border-card-border bg-white px-4 py-2 text-sm text-sumi disabled:cursor-not-allowed disabled:opacity-40 hover:bg-washi"
+        >
+          上一张
+        </button>
+        <button
+          type="button"
+          disabled={index >= queue.length - 1}
+          onClick={() => goToIndex(index + 1)}
+          className="rounded-lg border border-card-border bg-white px-4 py-2 text-sm text-sumi disabled:cursor-not-allowed disabled:opacity-40 hover:bg-washi"
+        >
+          下一张
+        </button>
+      </div>
 
       <div className="mt-5">
         <LinkedCardsSection cards={linkedCards} />

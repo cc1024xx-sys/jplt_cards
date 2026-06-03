@@ -65,7 +65,9 @@ export function Flashcard({ card, index, total, onRate }: FlashcardProps) {
         <p className="text-center text-sm text-sumi-muted">点击卡片查看答案</p>
       ) : (
         <>
-          <p className="text-center text-sm text-sumi-muted">标记熟悉程度后进入下一张</p>
+          <p className="text-center text-sm text-sumi-muted">
+            标记熟悉程度后自动下一张，也可使用下方按钮手动切换
+          </p>
           <FamiliarityBar onSelect={handleRate} />
         </>
       )}
