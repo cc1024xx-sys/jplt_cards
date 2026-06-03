@@ -128,18 +128,7 @@ export function ContrastFormFields({
         />
       </label>
       <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-sm text-sumi-muted">背面 · 对比项（至少 2 项）</span>
-          {items.length < 6 && (
-            <button
-              type="button"
-              onClick={addItem}
-              className="text-xs text-indigo-ja-dark hover:underline"
-            >
-              ＋ 添加对比项
-            </button>
-          )}
-        </div>
+        <span className="text-sm text-sumi-muted">背面 · 对比项（至少 2 项）</span>
         {items.map((item, i) => (
           <ContrastEntryFields
             key={i}
@@ -150,6 +139,15 @@ export function ContrastFormFields({
             canRemove={items.length > 2}
           />
         ))}
+        {items.length < 6 && (
+          <button
+            type="button"
+            onClick={addItem}
+            className="rounded-lg border border-dashed border-card-border py-2 text-sm text-indigo-ja-dark hover:bg-washi"
+          >
+            ＋ 添加对比项
+          </button>
+        )}
       </div>
       <label className="flex flex-col gap-1">
         <span className="text-sm text-sumi-muted">易混点（每行一条，可选）</span>

@@ -167,12 +167,6 @@ export function Decks() {
         <h1 className="text-xl font-medium">牌组</h1>
         <div className="flex items-center gap-2">
           <Link
-            to="/decks/new"
-            className="rounded-lg bg-sakura/30 px-3 py-1.5 text-sm text-sakura-deep no-underline hover:bg-sakura/40"
-          >
-            新建牌组
-          </Link>
-          <Link
             to="/decks/edit"
             className="rounded-lg border border-card-border bg-white px-3 py-1.5 text-sm text-sumi-muted no-underline hover:bg-washi"
           >
