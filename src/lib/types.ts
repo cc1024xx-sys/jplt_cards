@@ -64,9 +64,11 @@ export interface CorpusBack {
   phrases: CorpusPhrase[]
 }
 
-/** 背面单侧对比项：表达 + 例句 */
+/** 背面单侧对比项：表达 + 接续 + 例句 */
 export interface ContrastEntry {
   label: string
+  /** 接续说明 */
+  connection?: string
   subtitle?: string
   examples: ExamplePair[]
 }
@@ -208,7 +210,7 @@ export function getCardSearchText(card: Card): string {
   } else if (card.type === 'contrast') {
     parts.push(card.front.title, card.front.prompt ?? '')
     for (const entry of card.back.items) {
-      parts.push(entry.label, entry.subtitle ?? '')
+      parts.push(entry.label, entry.connection ?? '', entry.subtitle ?? '')
       for (const ex of entry.examples) {
         parts.push(ex.ja, ex.zh)
       }

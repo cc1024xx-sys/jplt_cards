@@ -1,13 +1,17 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import type { Card } from '../lib/types'
 import { CARD_TYPE_LABELS } from '../lib/types'
 import { CardBack, CardFront, useCardCopy } from './CardFaces'
 
 interface FlashcardPreviewProps {
   card: Card
+  /** 仅展示正面，不可翻面（牌组浏览用） */
+  frontOnly?: boolean
+  editHref?: string
 }
 
-export function FlashcardPreview({ card }: FlashcardPreviewProps) {
+export function FlashcardPreview({ card, frontOnly = false, editHref }: FlashcardPreviewProps) {
   const [flipped, setFlipped] = useState(false)
   const { copiedKey, handleCopy } = useCardCopy()
 
@@ -21,21 +25,37 @@ export function FlashcardPreview({ card }: FlashcardPreviewProps) {
         </span>
       </div>
 
-      <button
-        type="button"
-        onClick={handleFlip}
-        className="min-h-[280px] w-full cursor-pointer rounded-2xl border border-card-border bg-white p-6 text-left shadow-sm transition-shadow hover:shadow-md focus:outline-none focus:ring-2 focus:ring-sakura/50"
-      >
-        {!flipped ? (
+      {frontOnly ? (
+        <div className="min-h-[280px] w-full rounded-2xl border border-card-border bg-white p-6 shadow-sm">
           <CardFront card={card} copiedKey={copiedKey} onCopy={handleCopy} />
-        ) : (
-          <CardBack card={card} copiedKey={copiedKey} onCopy={handleCopy} />
-        )}
-      </button>
+        </div>
+      ) : (
+        <>
+          <button
+            type="button"
+            onClick={handleFlip}
+            className="min-h-[280px] w-full cursor-pointer rounded-2xl border border-card-border bg-white p-6 text-left shadow-sm transition-shadow hover:shadow-md focus:outline-none focus:ring-2 focus:ring-sakura/50"
+          >
+            {!flipped ? (
+              <CardFront card={card} copiedKey={copiedKey} onCopy={handleCopy} />
+            ) : (
+              <CardBack card={card} copiedKey={copiedKey} onCopy={handleCopy} />
+            )}
+          </button>
+          <p className="text-center text-sm text-sumi-muted">
+            {flipped ? '点击卡片返回正面' : '点击卡片查看背面'}
+          </p>
+        </>
+      )}
 
-      <p className="text-center text-sm text-sumi-muted">
-        {flipped ? '点击卡片返回正面' : '点击卡片查看背面'}
-      </p>
+      {editHref && (
+        <Link
+          to={editHref}
+          className="block rounded-xl bg-indigo-ja-dark py-3 text-center text-sm text-white no-underline hover:bg-indigo-ja"
+        >
+          编辑
+        </Link>
+      )}
     </div>
   )
 }

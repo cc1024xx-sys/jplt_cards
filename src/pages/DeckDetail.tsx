@@ -8,6 +8,7 @@ import {
   searchCards,
   unlinkCards,
 } from '../lib/db'
+import { FlashcardPreview } from '../components/FlashcardPreview'
 import { FAMILIARITY_LABELS, getCardFrontText, type Card } from '../lib/types'
 
 export function DeckDetail() {
@@ -19,6 +20,7 @@ export function DeckDetail() {
   const [allCards, setAllCards] = useState<Card[]>([])
   const [linkingCardId, setLinkingCardId] = useState<string | null>(null)
   const [linkQuery, setLinkQuery] = useState('')
+  const [viewingCardId, setViewingCardId] = useState<string | null>(null)
 
   const loadDeckCards = async () => {
     if (!deckId) return
@@ -50,6 +52,11 @@ export function DeckDetail() {
   const linkingCard = useMemo(
     () => cards.find((card) => card.id === linkingCardId) ?? null,
     [cards, linkingCardId],
+  )
+
+  const viewingCard = useMemo(
+    () => cards.find((card) => card.id === viewingCardId) ?? null,
+    [cards, viewingCardId],
   )
 
   const candidates = useMemo(() => {
@@ -114,12 +121,13 @@ export function DeckDetail() {
             <li key={card.id}>
               <div className="rounded-lg border border-card-border bg-white px-3 py-2">
                 <div className="flex items-start justify-between gap-2">
-                  <Link
-                    to={`/cards/${card.id}/edit`}
-                    className="min-w-0 flex-1 no-underline"
+                  <button
+                    type="button"
+                    onClick={() => setViewingCardId(card.id)}
+                    className="min-w-0 flex-1 cursor-pointer rounded-md text-left transition-colors hover:bg-washi/80"
                   >
                     <CardPreview card={card} />
-                  </Link>
+                  </button>
                   <span className="shrink-0 text-xs text-sumi-muted">
                     {FAMILIARITY_LABELS[card.review.familiarity]}
                   </span>
@@ -152,6 +160,41 @@ export function DeckDetail() {
       >
         删除牌组
       </button>
+
+      {viewingCard && (
+        <div
+          className="fixed inset-0 z-40 flex items-center justify-center bg-sumi/30 px-4 py-6"
+          onClick={() => setViewingCardId(null)}
+          role="presentation"
+        >
+          <div
+            className="max-h-[90vh] w-full max-w-lg overflow-auto rounded-xl bg-washi p-4 shadow-lg"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="deck-card-view-title"
+          >
+            <div className="mb-3 flex items-center justify-between">
+              <h2 id="deck-card-view-title" className="text-base font-medium text-sumi">
+                闪卡
+              </h2>
+              <button
+                type="button"
+                onClick={() => setViewingCardId(null)}
+                className="text-sm text-sumi-muted hover:text-sumi"
+              >
+                关闭
+              </button>
+            </div>
+            <FlashcardPreview
+              key={viewingCard.id}
+              card={viewingCard}
+              frontOnly
+              editHref={`/cards/${viewingCard.id}/edit`}
+            />
+          </div>
+        </div>
+      )}
 
       {linkingCard && (
         <div className="fixed inset-0 z-30 flex items-center justify-center bg-sumi/30 px-4">

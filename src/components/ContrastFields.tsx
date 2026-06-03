@@ -44,6 +44,17 @@ function ContrastEntryFields({
         />
       </label>
       <label className="flex flex-col gap-1">
+        <span className="text-xs text-sumi-muted">接续（可选）</span>
+        <input
+          value={value.connection ?? ''}
+          onChange={(e) =>
+            onChange({ ...value, connection: e.target.value.trim() || undefined })
+          }
+          placeholder="如：动词/い形/な形普通形、名词+だ"
+          className="rounded-lg border border-card-border bg-white px-3 py-2 text-sm"
+        />
+      </label>
+      <label className="flex flex-col gap-1">
         <span className="text-xs text-sumi-muted">补充说明（可选）</span>
         <input
           value={value.subtitle ?? ''}

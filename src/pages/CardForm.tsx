@@ -269,6 +269,7 @@ export function CardForm() {
 
   const normalizeContrastEntry = (entry: ContrastEntry): ContrastEntry => ({
     label: entry.label.trim(),
+    connection: entry.connection?.trim() || undefined,
     subtitle: entry.subtitle?.trim() || undefined,
     examples: normalizeExampleList(entry.examples),
   })

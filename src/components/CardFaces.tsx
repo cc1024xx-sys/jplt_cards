@@ -198,6 +198,12 @@ export function CardBack({
                 onCopy={onCopy}
               />
             </div>
+            {entry.connection && (
+              <p className="mb-2 text-sm text-sumi">
+                <span className="font-medium text-indigo-ja-dark">接续：</span>
+                {entry.connection}
+              </p>
+            )}
             {entry.subtitle && (
               <p className="mb-2 text-sm text-sumi-muted">{entry.subtitle}</p>
             )}

@@ -311,23 +311,20 @@ export function Decks() {
               <h2 id="card-view-title" className="text-base font-medium text-sumi">
                 闪卡详情
               </h2>
-              <div className="flex items-center gap-2">
-                <Link
-                  to={`/cards/${viewingCard.id}/edit`}
-                  className="rounded border border-card-border bg-white px-2 py-1 text-xs text-sumi-muted no-underline hover:bg-white/80"
-                >
-                  编辑
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => setViewingCardId(null)}
-                  className="text-sm text-sumi-muted hover:text-sumi"
-                >
-                  关闭
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => setViewingCardId(null)}
+                className="text-sm text-sumi-muted hover:text-sumi"
+              >
+                关闭
+              </button>
             </div>
-            <FlashcardPreview key={viewingCard.id} card={viewingCard} />
+            <FlashcardPreview
+              key={viewingCard.id}
+              card={viewingCard}
+              frontOnly
+              editHref={`/cards/${viewingCard.id}/edit`}
+            />
             <div className="mt-4">
               <LinkedCardsSection
                 cards={viewingLinkedCards}

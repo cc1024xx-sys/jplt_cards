@@ -107,20 +107,30 @@ function LinkedCardScenariosAndExamples({ card }: { card: Card }) {
 
   if (isContrastCard(card)) {
     const { items, pitfalls = [] } = card.back
-    const hasExamples = items.some((entry) => entry.examples.length > 0)
+    const hasExamples = items.some(
+      (entry) => entry.examples.length > 0 || Boolean(entry.connection?.trim()),
+    )
     if (!hasExamples && pitfalls.length === 0) return null
     return (
       <div className="mt-2 space-y-2 border-t border-card-border/60 pt-2">
-        {items.map((entry, idx) =>
-          entry.examples.length > 0 ? (
+        {items.map((entry, idx) => {
+          const hasContent = entry.examples.length > 0 || Boolean(entry.connection?.trim())
+          if (!hasContent) return null
+          return (
             <div key={idx}>
               <p className="mb-1 text-xs font-medium text-sakura-deep">
                 对比项 {idx + 1}：{entry.label}
               </p>
-              <ExamplesBlock examples={entry.examples} />
+              {entry.connection && (
+                <p className="mb-1 text-sm text-sumi">
+                  <span className="font-medium text-indigo-ja-dark">接续：</span>
+                  {entry.connection}
+                </p>
+              )}
+              {entry.examples.length > 0 && <ExamplesBlock examples={entry.examples} />}
             </div>
-          ) : null,
-        )}
+          )
+        })}
         {pitfalls.length > 0 && (
           <div>
             <p className="mb-1 text-xs font-medium text-sakura-deep">易混点</p>

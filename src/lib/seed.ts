@@ -120,12 +120,14 @@ export async function seedSampleData(): Promise<void> {
       items: [
         {
           label: 'のに',
+          connection: '动词/い形/な形普通形、名词+だ',
           examples: [
             { ja: '約束したのに、来なかった。', zh: '明明约好了，却没来。' },
           ],
         },
         {
           label: 'なのに',
+          connection: 'な形+な、名词+な',
           examples: [
             { ja: '雨なのに、傘を持ってこなかった。', zh: '明明下雨了，却没带伞来。' },
           ],
