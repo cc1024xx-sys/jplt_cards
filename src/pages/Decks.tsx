@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { Flashcard } from '../components/Flashcard'
 import { LinkedCardsSection } from '../components/LinkedCardsSection'
 import { deleteCard, getAllDecks, getCardsByDeck, linkCards, saveCard, unlinkCards } from '../lib/db'
@@ -15,6 +15,7 @@ import {
 } from '../lib/types'
 
 export function Decks() {
+  const location = useLocation()
   const [decks, setDecks] = useState<Deck[]>([])
   const [cards, setCards] = useState<Card[]>([])
   const [loading, setLoading] = useState(true)
@@ -31,6 +32,7 @@ export function Decks() {
 
   useEffect(() => {
     async function load() {
+      setLoading(true)
       const list = await getAllDecks()
       setDecks(list)
       const allCards: Card[] = []
@@ -42,7 +44,7 @@ export function Decks() {
       setLoading(false)
     }
     void load()
-  }, [])
+  }, [location.pathname])
 
   const filteredCards = useMemo(() => {
     const keyword = search.trim().toLowerCase()
