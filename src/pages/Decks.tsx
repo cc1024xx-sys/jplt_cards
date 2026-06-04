@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { Flashcard } from '../components/Flashcard'
 import { LinkedCardsSection } from '../components/LinkedCardsSection'
+import { getCardTypeOrder, reorderCardTypeOrder } from '../lib/card-type-order'
 import { deleteCard, getAllDecks, getCardsByDeck, linkCards, saveCard, unlinkCards } from '../lib/db'
 import { applyFamiliarity } from '../lib/review-scheduler'
 import {
@@ -29,6 +30,9 @@ export function Decks() {
     corpus: true,
     contrast: true,
   })
+  const [groupOrder, setGroupOrder] = useState<CardType[]>(() => getCardTypeOrder())
+  const [draggingType, setDraggingType] = useState<CardType | null>(null)
+  const [dragOverType, setDragOverType] = useState<CardType | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -82,7 +86,25 @@ export function Decks() {
     return base
   }, [decks])
 
-  const groupOrder: CardType[] = ['vocabulary', 'grammar', 'corpus', 'contrast']
+  const handleTypeDragStart = (type: CardType, e: { dataTransfer: DataTransfer }) => {
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', type)
+    setDraggingType(type)
+  }
+
+  const handleTypeDragEnd = () => {
+    setDraggingType(null)
+    setDragOverType(null)
+  }
+
+  const handleTypeDrop = (target: CardType, e: { preventDefault: () => void; dataTransfer: DataTransfer }) => {
+    e.preventDefault()
+    const dragged = e.dataTransfer.getData('text/plain') as CardType
+    if (dragged && dragged !== target) {
+      setGroupOrder((prev) => reorderCardTypeOrder(prev, dragged, target))
+    }
+    handleTypeDragEnd()
+  }
 
   const toggleCollapse = (type: CardType) => {
     setCollapsed((prev) => ({ ...prev, [type]: !prev[type] }))
@@ -182,6 +204,10 @@ export function Decks() {
         className="rounded-lg border border-card-border bg-white px-3 py-2"
       />
 
+      {decks.length > 0 && (
+        <p className="text-xs text-sumi-muted">拖动类型标题栏最右侧把手可调整展示顺序</p>
+      )}
+
       {decks.length === 0 ? (
         <div className="rounded-xl border border-dashed border-card-border py-12 text-center">
           <p className="text-sumi-muted">还没有牌组</p>
@@ -198,8 +224,30 @@ export function Decks() {
           {groupOrder.map((type) => {
             const list = groupedCards[type]
             const isCollapsed = collapsed[type]
+            const isDragging = draggingType === type
+            const isDragOver = dragOverType === type && draggingType !== type
             return (
-              <section key={type} className="rounded-xl border border-card-border bg-white">
+              <section
+                key={type}
+                onDragOver={(e) => {
+                  e.preventDefault()
+                  e.dataTransfer.dropEffect = 'move'
+                  if (draggingType && draggingType !== type) setDragOverType(type)
+                }}
+                onDragLeave={(e) => {
+                  if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                    setDragOverType((prev) => (prev === type ? null : prev))
+                  }
+                }}
+                onDrop={(e) => handleTypeDrop(type, e)}
+                className={`rounded-xl border bg-white transition-shadow ${
+                  isDragOver
+                    ? 'border-indigo-ja shadow-md'
+                    : isDragging
+                      ? 'border-card-border opacity-50'
+                      : 'border-card-border'
+                }`}
+              >
                 <div className="flex items-center gap-2 px-4 py-3">
                   <button
                     type="button"
@@ -221,6 +269,17 @@ export function Decks() {
                   >
                     新建闪卡
                   </Link>
+                  <span
+                    draggable
+                    onDragStart={(e) => handleTypeDragStart(type, e)}
+                    onDragEnd={handleTypeDragEnd}
+                    className="shrink-0 cursor-grab select-none rounded px-1.5 py-1 text-sumi-muted active:cursor-grabbing hover:bg-washi"
+                    title="拖动调整顺序"
+                    aria-label={`拖动 ${CARD_TYPE_LABELS[type]} 调整顺序`}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    ⠿
+                  </span>
                 </div>
                 {!isCollapsed && (
                   <div className="space-y-2 border-t border-card-border p-3">

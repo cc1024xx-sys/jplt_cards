@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { getCardTypeOrder } from '../lib/card-type-order'
 import { getStats } from '../lib/db'
 import { seedSampleData } from '../lib/seed'
-import { CARD_TYPE_LABELS, type CardType } from '../lib/types'
+import { CARD_TYPE_LABELS } from '../lib/types'
 
 export function Home() {
   const [stats, setStats] = useState<{
@@ -44,7 +45,7 @@ export function Home() {
       <section>
         <h2 className="mb-3 text-sm font-medium text-sumi-muted">按类型复习</h2>
         <div className="grid gap-3">
-          {(['vocabulary', 'grammar', 'corpus', 'contrast'] as CardType[]).map((type) => (
+          {getCardTypeOrder().map((type) => (
             <Link
               key={type}
               to={`/study?type=${type}`}

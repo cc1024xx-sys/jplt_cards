@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { getCardTypeOrder } from '../lib/card-type-order'
 import { deleteDeck, getAllDecks, saveDeck } from '../lib/db'
 import { CARD_TYPE_LABELS, type CardType, type Deck } from '../lib/types'
 
@@ -58,7 +59,7 @@ export function DeckEdit() {
     corpus: decks.filter((d) => d.cardType === 'corpus'),
     contrast: decks.filter((d) => d.cardType === 'contrast'),
   }
-  const groupOrder: CardType[] = ['vocabulary', 'grammar', 'corpus', 'contrast']
+  const groupOrder = getCardTypeOrder()
 
   if (loading) return <p className="text-center text-sumi-muted">加载中…</p>
 

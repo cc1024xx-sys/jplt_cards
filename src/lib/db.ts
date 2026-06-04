@@ -150,13 +150,36 @@ export async function deleteCard(id: string): Promise<void> {
   await db.cards.delete(id)
 }
 
-export async function replaceAllData(decks: Deck[], cards: Card[]): Promise<void> {
+export async function mergeImportedData(
+  importedDecks: Deck[],
+  importedCards: Card[],
+): Promise<{
+  addedDeckCount: number
+  addedCardCount: number
+  skippedDeckCount: number
+  skippedCardCount: number
+}> {
+  const existingDeckIds = new Set((await db.decks.toArray()).map((d) => d.id))
+  const existingCardIds = new Set((await db.cards.toArray()).map((c) => c.id))
+
+  const decksToAdd = importedDecks.filter((d) => !existingDeckIds.has(d.id))
+  const validDeckIds = new Set([...existingDeckIds, ...decksToAdd.map((d) => d.id)])
+
+  const cardsToAdd = importedCards.filter(
+    (c) => !existingCardIds.has(c.id) && validDeckIds.has(c.deckId),
+  )
+
   await db.transaction('rw', db.decks, db.cards, async () => {
-    await db.decks.clear()
-    await db.cards.clear()
-    await db.decks.bulkPut(decks)
-    await db.cards.bulkPut(cards)
+    if (decksToAdd.length) await db.decks.bulkPut(decksToAdd)
+    if (cardsToAdd.length) await db.cards.bulkPut(cardsToAdd)
   })
+
+  return {
+    addedDeckCount: decksToAdd.length,
+    addedCardCount: cardsToAdd.length,
+    skippedDeckCount: importedDecks.length - decksToAdd.length,
+    skippedCardCount: importedCards.length - cardsToAdd.length,
+  }
 }
 
 export async function getStats(): Promise<{

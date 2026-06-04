@@ -1,5 +1,5 @@
 import type { BackupFile } from './types'
-import { getAllCards, getAllDecks, replaceAllData } from './db'
+import { getAllCards, getAllDecks, mergeImportedData } from './db'
 
 export const BACKUP_VERSION = 1
 export const LAST_EXPORT_KEY = 'jl_last_export_at'
@@ -40,7 +40,12 @@ function isBackupFile(data: unknown): data is BackupFile {
   )
 }
 
-export async function importBackupFromFile(file: File): Promise<{ cardCount: number; deckCount: number }> {
+export async function importBackupFromFile(file: File): Promise<{
+  addedDeckCount: number
+  addedCardCount: number
+  skippedDeckCount: number
+  skippedCardCount: number
+}> {
   const text = await file.text()
   let parsed: unknown
   try {
@@ -57,8 +62,7 @@ export async function importBackupFromFile(file: File): Promise<{ cardCount: num
     throw new Error(`备份版本 ${parsed.version} 高于当前应用支持的版本 ${BACKUP_VERSION}`)
   }
 
-  await replaceAllData(parsed.decks, parsed.cards)
-  return { deckCount: parsed.decks.length, cardCount: parsed.cards.length }
+  return mergeImportedData(parsed.decks, parsed.cards)
 }
 
 export function getLastExportAt(): string | null {

@@ -19,16 +19,23 @@ export function Settings() {
   const handleImport = async (file: File) => {
     if (
       !confirm(
-        '导入将替换本机全部学习内容。建议先导出当前备份。确定继续？',
+        '导入会将备份中的新内容合并到本机，不会覆盖已有牌组和卡片。确定继续？',
       )
     ) {
       return
     }
     try {
-      const { deckCount, cardCount } = await importBackupFromFile(file)
+      const { addedDeckCount, addedCardCount, skippedDeckCount, skippedCardCount } =
+        await importBackupFromFile(file)
+      const parts = [
+        `新增 ${addedDeckCount} 个牌组、${addedCardCount} 张卡片`,
+      ]
+      if (skippedDeckCount > 0 || skippedCardCount > 0) {
+        parts.push(`跳过 ${skippedDeckCount} 个牌组、${skippedCardCount} 张卡片（本机已有）`)
+      }
       setMessage({
         type: 'ok',
-        text: `已恢复 ${deckCount} 个牌组、${cardCount} 张卡片，请刷新页面`,
+        text: `${parts.join('，')}。请刷新页面`,
       })
       setTimeout(() => window.location.href = '/', 1500)
     } catch (e) {
@@ -46,7 +53,7 @@ export function Settings() {
       <section className="rounded-xl border border-card-border bg-white p-4">
         <h2 className="font-medium text-sumi">内容备份</h2>
         <p className="mt-1 text-sm text-sumi-muted">
-          数据保存在本机浏览器。换设备或清缓存前请导出备份。
+          数据保存在本机浏览器。换设备或清缓存前请导出备份。导入时仅合并新内容，不会覆盖本机已有数据。
         </p>
         {lastExport && (
           <p className="mt-2 text-xs text-sumi-muted">
@@ -78,7 +85,7 @@ export function Settings() {
             onClick={() => fileRef.current?.click()}
             className="rounded-lg border border-card-border py-2.5 hover:bg-washi"
           >
-            导入备份（覆盖本机数据）
+            导入备份（合并到本机）
           </button>
         </div>
       </section>
