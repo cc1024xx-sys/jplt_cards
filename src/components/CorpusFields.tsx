@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useState, type DragEvent, type ReactNode } from 'react'
 import {
   countInvalidCorpusPhraseLines,
   countInvalidCorpusWordLines,
@@ -9,6 +9,65 @@ import type { CorpusPhrase, CorpusWord } from '../lib/types'
 
 type WordRow = { ja: string; zh: string; reading: string }
 type PhraseRow = { ja: string; zh: string; note: string }
+
+function reorderByIndex<T>(items: T[], from: number, to: number): T[] {
+  if (from === to || from < 0 || to < 0 || from >= items.length || to >= items.length) {
+    return items
+  }
+  const next = [...items]
+  const [item] = next.splice(from, 1)
+  next.splice(to, 0, item)
+  return next
+}
+
+function useDragReorder<T>(items: T[], onReorder: (next: T[]) => void) {
+  const [draggingIndex, setDraggingIndex] = useState<number | null>(null)
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
+
+  const handleDragStart = (index: number, e: DragEvent) => {
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', String(index))
+    setDraggingIndex(index)
+  }
+
+  const handleDragEnd = () => {
+    setDraggingIndex(null)
+    setDragOverIndex(null)
+  }
+
+  const handleDragOver = (index: number, e: DragEvent) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    if (draggingIndex !== null && draggingIndex !== index) {
+      setDragOverIndex(index)
+    }
+  }
+
+  const handleDragLeave = (index: number, e: DragEvent) => {
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+      setDragOverIndex((prev) => (prev === index ? null : prev))
+    }
+  }
+
+  const handleDrop = (index: number, e: DragEvent) => {
+    e.preventDefault()
+    const from = Number(e.dataTransfer.getData('text/plain'))
+    if (!Number.isNaN(from) && from !== index) {
+      onReorder(reorderByIndex(items, from, index))
+    }
+    handleDragEnd()
+  }
+
+  return {
+    draggingIndex,
+    dragOverIndex,
+    handleDragStart,
+    handleDragEnd,
+    handleDragOver,
+    handleDragLeave,
+    handleDrop,
+  }
+}
 
 interface CorpusWordFieldsProps {
   value: CorpusWord[]
@@ -43,6 +102,8 @@ export function CorpusWordFields({ value, onChange }: CorpusWordFieldsProps) {
     emit(next.length > 0 ? next : [{ ja: '', zh: '', reading: '' }])
   }
 
+  const drag = useDragReorder(rows, emit)
+
   const applyBulkPaste = () => {
     const trimmed = bulkText.trim()
     if (!trimmed) return
@@ -65,6 +126,7 @@ export function CorpusWordFields({ value, onChange }: CorpusWordFieldsProps) {
   return (
     <StructuredBlock
       label="常用单词"
+      orderHint="拖动左侧手柄调整整行顺序"
       addLabel="＋ 添加单词"
       bulkHint="批量粘贴（每行：日语|中文|读音可选，支持全角｜）"
       bulkPlaceholder="コーヒー|咖啡|こーひー"
@@ -73,35 +135,52 @@ export function CorpusWordFields({ value, onChange }: CorpusWordFieldsProps) {
       onBulkApply={applyBulkPaste}
       onAdd={addRow}
     >
-      {rows.map((row, index) => (
-        <div
-          key={index}
-          className="grid grid-cols-1 gap-2 rounded-lg border border-card-border bg-white p-2 sm:grid-cols-[1fr_1fr_1fr_auto]"
-        >
-          <input
-            value={row.ja}
-            onChange={(e) => updateRow(index, 'ja', e.target.value)}
-            placeholder="日语"
-            className="rounded-lg border border-card-border px-3 py-2 text-sm"
-          />
-          <input
-            value={row.zh}
-            onChange={(e) => updateRow(index, 'zh', e.target.value)}
-            placeholder="中文"
-            className="rounded-lg border border-card-border px-3 py-2 text-sm"
-          />
-          <input
-            value={row.reading}
-            onChange={(e) => updateRow(index, 'reading', e.target.value)}
-            placeholder="读音（可选）"
-            className="rounded-lg border border-card-border px-3 py-2 text-sm"
-          />
-          <RemoveButton
-            onClick={() => removeRow(index)}
-            disabled={rows.length === 1 && !row.ja && !row.zh && !row.reading}
-          />
-        </div>
-      ))}
+      <CorpusTable
+        columns={['', '日语', '中文', '读音（可选）', '操作']}
+        rowCount={rows.length}
+      >
+        {rows.map((row, index) => (
+          <DraggableTableRow key={index} index={index} drag={drag}>
+            <TableCell className="w-10">
+              <DragHandle
+                index={index}
+                onDragStart={drag.handleDragStart}
+                onDragEnd={drag.handleDragEnd}
+              />
+            </TableCell>
+            <TableCell>
+              <input
+                value={row.ja}
+                onChange={(e) => updateRow(index, 'ja', e.target.value)}
+                placeholder="日语"
+                className={inputClass}
+              />
+            </TableCell>
+            <TableCell>
+              <input
+                value={row.zh}
+                onChange={(e) => updateRow(index, 'zh', e.target.value)}
+                placeholder="中文"
+                className={inputClass}
+              />
+            </TableCell>
+            <TableCell>
+              <input
+                value={row.reading}
+                onChange={(e) => updateRow(index, 'reading', e.target.value)}
+                placeholder="读音"
+                className={inputClass}
+              />
+            </TableCell>
+            <TableCell className="w-16">
+              <RemoveButton
+                onClick={() => removeRow(index)}
+                disabled={rows.length === 1 && !row.ja && !row.zh && !row.reading}
+              />
+            </TableCell>
+          </DraggableTableRow>
+        ))}
+      </CorpusTable>
     </StructuredBlock>
   )
 }
@@ -139,6 +218,8 @@ export function CorpusPhraseFields({ value, onChange }: CorpusPhraseFieldsProps)
     emit(next.length > 0 ? next : [{ ja: '', zh: '', note: '' }])
   }
 
+  const drag = useDragReorder(rows, emit)
+
   const applyBulkPaste = () => {
     const trimmed = bulkText.trim()
     if (!trimmed) return
@@ -161,6 +242,7 @@ export function CorpusPhraseFields({ value, onChange }: CorpusPhraseFieldsProps)
   return (
     <StructuredBlock
       label="常用句式（例句）"
+      orderHint="拖动左侧手柄调整整行顺序"
       addLabel="＋ 添加句式"
       bulkHint="批量粘贴（每行：日语|中文|备注可选，支持全角｜）"
       bulkPlaceholder="これください|请给我这个"
@@ -169,41 +251,174 @@ export function CorpusPhraseFields({ value, onChange }: CorpusPhraseFieldsProps)
       onBulkApply={applyBulkPaste}
       onAdd={addRow}
     >
-      {rows.map((row, index) => (
-        <div
-          key={index}
-          className="grid grid-cols-1 gap-2 rounded-lg border border-card-border bg-white p-2 sm:grid-cols-[1fr_1fr_1fr_auto]"
-        >
-          <input
-            value={row.ja}
-            onChange={(e) => updateRow(index, 'ja', e.target.value)}
-            placeholder="日语句式"
-            className="rounded-lg border border-card-border px-3 py-2 text-sm"
-          />
-          <input
-            value={row.zh}
-            onChange={(e) => updateRow(index, 'zh', e.target.value)}
-            placeholder="中文"
-            className="rounded-lg border border-card-border px-3 py-2 text-sm"
-          />
-          <input
-            value={row.note}
-            onChange={(e) => updateRow(index, 'note', e.target.value)}
-            placeholder="备注（可选）"
-            className="rounded-lg border border-card-border px-3 py-2 text-sm"
-          />
-          <RemoveButton
-            onClick={() => removeRow(index)}
-            disabled={rows.length === 1 && !row.ja && !row.zh && !row.note}
-          />
-        </div>
-      ))}
+      <CorpusTable
+        columns={['', '日语句式', '中文', '备注（可选）', '操作']}
+        rowCount={rows.length}
+      >
+        {rows.map((row, index) => (
+          <DraggableTableRow key={index} index={index} drag={drag}>
+            <TableCell className="w-10">
+              <DragHandle
+                index={index}
+                onDragStart={drag.handleDragStart}
+                onDragEnd={drag.handleDragEnd}
+              />
+            </TableCell>
+            <TableCell>
+              <input
+                value={row.ja}
+                onChange={(e) => updateRow(index, 'ja', e.target.value)}
+                placeholder="日语句式"
+                className={inputClass}
+              />
+            </TableCell>
+            <TableCell>
+              <input
+                value={row.zh}
+                onChange={(e) => updateRow(index, 'zh', e.target.value)}
+                placeholder="中文"
+                className={inputClass}
+              />
+            </TableCell>
+            <TableCell>
+              <input
+                value={row.note}
+                onChange={(e) => updateRow(index, 'note', e.target.value)}
+                placeholder="备注"
+                className={inputClass}
+              />
+            </TableCell>
+            <TableCell className="w-16">
+              <RemoveButton
+                onClick={() => removeRow(index)}
+                disabled={rows.length === 1 && !row.ja && !row.zh && !row.note}
+              />
+            </TableCell>
+          </DraggableTableRow>
+        ))}
+      </CorpusTable>
     </StructuredBlock>
+  )
+}
+
+const inputClass =
+  'w-full min-w-0 rounded-lg border border-card-border bg-white px-3 py-2 text-sm'
+
+function CorpusTable({
+  columns,
+  rowCount,
+  children,
+}: {
+  columns: string[]
+  rowCount: number
+  children: ReactNode
+}) {
+  return (
+    <div className="overflow-x-auto rounded-lg border border-card-border bg-white">
+      <table className="w-full min-w-[36rem] border-collapse text-sm">
+        <thead>
+          <tr className="bg-washi/80 text-left text-xs text-sumi-muted">
+            {columns.map((column) => (
+              <th key={column} className="px-2 py-2 font-medium">
+                {column}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rowCount === 0 ? (
+            <tr>
+              <td colSpan={columns.length} className="px-2 py-3 text-center text-sumi-muted">
+                暂无内容
+              </td>
+            </tr>
+          ) : (
+            children
+          )}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function TableCell({
+  children,
+  className = '',
+}: {
+  children: ReactNode
+  className?: string
+}) {
+  return <td className={`px-2 py-2 align-top ${className}`}>{children}</td>
+}
+
+type DragReorderHandlers = ReturnType<typeof useDragReorder<unknown>>
+
+function DraggableTableRow({
+  index,
+  drag,
+  children,
+}: {
+  index: number
+  drag: DragReorderHandlers
+  children: ReactNode
+}) {
+  const isDragging = drag.draggingIndex === index
+  const isDragOver = drag.dragOverIndex === index && drag.draggingIndex !== index
+
+  return (
+    <tr
+      onDragOver={(e) => drag.handleDragOver(index, e)}
+      onDragLeave={(e) => drag.handleDragLeave(index, e)}
+      onDrop={(e) => drag.handleDrop(index, e)}
+      className={`border-t border-card-border/70 transition-colors ${
+        isDragOver ? 'bg-indigo-ja/5' : isDragging ? 'opacity-50' : ''
+      }`}
+    >
+      {children}
+    </tr>
+  )
+}
+
+function DragHandle({
+  index,
+  onDragStart,
+  onDragEnd,
+}: {
+  index: number
+  onDragStart: (index: number, e: DragEvent) => void
+  onDragEnd: () => void
+}) {
+  return (
+    <span
+      draggable
+      onDragStart={(e) => onDragStart(index, e)}
+      onDragEnd={onDragEnd}
+      className="inline-flex cursor-grab select-none rounded px-1 py-2 text-sumi-muted active:cursor-grabbing hover:bg-washi"
+      title="拖动调整整行顺序"
+      aria-label="拖动调整整行顺序"
+    >
+      ☰
+    </span>
+  )
+}
+
+function RemoveButton({ onClick, disabled }: { onClick: () => void; disabled: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="rounded border border-card-border px-2 py-1 text-xs text-sumi-muted hover:bg-washi disabled:opacity-40"
+      aria-label="删除此行"
+    >
+      删除
+    </button>
   )
 }
 
 function StructuredBlock({
   label,
+  orderHint,
   addLabel,
   bulkHint,
   bulkPlaceholder,
@@ -214,6 +429,7 @@ function StructuredBlock({
   children,
 }: {
   label: string
+  orderHint: string
   addLabel: string
   bulkHint: string
   bulkPlaceholder: string
@@ -225,8 +441,11 @@ function StructuredBlock({
 }) {
   return (
     <div className="flex flex-col gap-2">
-      <span className="text-sm text-sumi-muted">{label}</span>
-      <div className="space-y-2">{children}</div>
+      <div>
+        <span className="text-sm text-sumi-muted">{label}</span>
+        <p className="mt-0.5 text-xs text-sumi-muted">{orderHint}</p>
+      </div>
+      {children}
       <button
         type="button"
         onClick={onAdd}
@@ -253,19 +472,5 @@ function StructuredBlock({
         </button>
       </div>
     </div>
-  )
-}
-
-function RemoveButton({ onClick, disabled }: { onClick: () => void; disabled: boolean }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className="rounded border border-card-border px-2 py-1 text-xs text-sumi-muted hover:bg-washi disabled:opacity-40"
-      aria-label="删除"
-    >
-      删除
-    </button>
   )
 }
