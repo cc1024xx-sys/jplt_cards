@@ -1,8 +1,15 @@
 import { useState } from 'react'
 import { ExampleLine } from './ExampleDisplay'
+import { PitfallsSection } from './PitfallsSection'
 import type { Card } from '../lib/types'
 import { formatExampleText } from '../lib/example-text'
-import { isContrastCard, isCorpusCard, isGrammarCard, isVocabularyCard } from '../lib/types'
+import {
+  getCardPitfalls,
+  isContrastCard,
+  isCorpusCard,
+  isGrammarCard,
+  isVocabularyCard,
+} from '../lib/types'
 
 export function CardFront({
   card,
@@ -144,6 +151,7 @@ export function CardBack({
             </div>
           )
         })}
+        <PitfallsSection pitfalls={getCardPitfalls(card)} />
       </div>
     )
   }
@@ -180,6 +188,7 @@ export function CardBack({
             </div>
           )
         })}
+        <PitfallsSection pitfalls={getCardPitfalls(card)} />
       </div>
     )
   }
@@ -228,16 +237,7 @@ export function CardBack({
             })}
           </div>
         ))}
-        {(card.back.pitfalls?.length ?? 0) > 0 && (
-          <div>
-            <p className="mb-1 text-xs font-medium text-sakura-deep">易混点</p>
-            <ul className="list-inside list-disc text-sm text-sumi">
-              {card.back.pitfalls!.map((p, i) => (
-                <li key={i}>{p}</li>
-              ))}
-            </ul>
-          </div>
-        )}
+        <PitfallsSection pitfalls={getCardPitfalls(card)} />
       </div>
     )
   }
@@ -290,6 +290,7 @@ export function CardBack({
             </div>
           </div>
         )}
+        <PitfallsSection pitfalls={getCardPitfalls(card)} />
       </div>
     )
   }

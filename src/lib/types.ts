@@ -31,6 +31,7 @@ export interface VocabularyBack {
   reading?: string
   scenarios: string[]
   examples?: ExamplePair[]
+  pitfalls?: string[]
 }
 
 export interface GrammarFront {
@@ -41,6 +42,7 @@ export interface GrammarBack {
   meaningZh: string
   scenarios: string[]
   examples: ExamplePair[]
+  pitfalls?: string[]
 }
 
 export interface CorpusWord {
@@ -62,6 +64,7 @@ export interface CorpusFront {
 export interface CorpusBack {
   words: CorpusWord[]
   phrases: CorpusPhrase[]
+  pitfalls?: string[]
 }
 
 /** 背面单侧对比项：表达 + 接续 + 例句 */
@@ -168,6 +171,10 @@ export function isContrastCard(card: Card): card is ContrastCard {
   return card.type === 'contrast'
 }
 
+export function getCardPitfalls(card: Card): string[] {
+  return card.back.pitfalls ?? []
+}
+
 export function getCardFrontText(card: Card): string {
   if (card.type === 'vocabulary') return card.front.meaningZh
   if (card.type === 'grammar') return card.front.pattern
@@ -202,11 +209,13 @@ export function getCardSearchText(card: Card): string {
     for (const ex of card.back.examples ?? []) {
       parts.push(ex.ja, ex.zh)
     }
+    parts.push(...(card.back.pitfalls ?? []))
   } else if (card.type === 'grammar') {
     parts.push(card.back.meaningZh, ...card.back.scenarios)
     for (const ex of card.back.examples) {
       parts.push(ex.ja, ex.zh)
     }
+    parts.push(...(card.back.pitfalls ?? []))
   } else if (card.type === 'contrast') {
     parts.push(card.front.title, card.front.prompt ?? '')
     for (const entry of card.back.items) {
@@ -225,6 +234,7 @@ export function getCardSearchText(card: Card): string {
     for (const p of card.back.phrases) {
       parts.push(p.ja, p.zh, p.note ?? '')
     }
+    parts.push(...(card.back.pitfalls ?? []))
   }
   return parts.join(' ').toLowerCase()
 }

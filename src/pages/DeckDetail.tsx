@@ -10,6 +10,7 @@ import {
   unlinkCards,
 } from '../lib/db'
 import { Flashcard } from '../components/Flashcard'
+import { LinkedCardsSection } from '../components/LinkedCardsSection'
 import { applyFamiliarity } from '../lib/review-scheduler'
 import { FAMILIARITY_LABELS, getCardFrontText, type Card, type Familiarity } from '../lib/types'
 
@@ -57,9 +58,16 @@ export function DeckDetail() {
   )
 
   const viewingCard = useMemo(
-    () => cards.find((card) => card.id === viewingCardId) ?? null,
-    [cards, viewingCardId],
+    () => allCards.find((card) => card.id === viewingCardId) ?? null,
+    [allCards, viewingCardId],
   )
+
+  const viewingLinkedCards = useMemo(() => {
+    if (!viewingCard) return []
+    return (viewingCard.linkedCardIds ?? [])
+      .map((id) => allCards.find((card) => card.id === id))
+      .filter((card): card is Card => Boolean(card))
+  }, [viewingCard, allCards])
 
   const candidates = useMemo(() => {
     if (!linkingCard) return []
@@ -97,6 +105,7 @@ export function DeckDetail() {
     }
     await saveCard(updated)
     setCards((prev) => prev.map((c) => (c.id === updated.id ? updated : c)))
+    setAllCards((prev) => prev.map((c) => (c.id === updated.id ? updated : c)))
   }
 
   return (
@@ -215,6 +224,12 @@ export function DeckDetail() {
               compact
               onRate={(f) => void handleViewingRate(f)}
             />
+            <div className="mt-4">
+              <LinkedCardsSection
+                cards={viewingLinkedCards}
+                onCardClick={(card) => setViewingCardId(card.id)}
+              />
+            </div>
           </div>
         </div>
       )}

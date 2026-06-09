@@ -1,5 +1,6 @@
 import type { ContrastEntry } from '../lib/types'
 import { ExampleFields } from './ExampleFields'
+import { PitfallsFields } from './PitfallsFields'
 
 export const emptyContrastEntry = (): ContrastEntry => ({
   label: '',
@@ -149,16 +150,7 @@ export function ContrastFormFields({
           </button>
         )}
       </div>
-      <label className="flex flex-col gap-1">
-        <span className="text-sm text-sumi-muted">易混点（每行一条，可选）</span>
-        <textarea
-          value={pitfallsText}
-          onChange={(e) => onPitfallsTextChange(e.target.value)}
-          rows={3}
-          placeholder="常见误用或记忆要点"
-          className="rounded-lg border border-card-border bg-white px-3 py-2"
-        />
-      </label>
+      <PitfallsFields value={pitfallsText} onChange={onPitfallsTextChange} />
     </>
   )
 }

@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ContrastFormFields, emptyContrastEntry } from '../components/ContrastFields'
 import { CorpusPhraseFields, CorpusWordFields } from '../components/CorpusFields'
 import { ExampleFields } from '../components/ExampleFields'
+import { PitfallsFields } from '../components/PitfallsFields'
 import { LinkCardsModal } from '../components/LinkCardsModal'
 import { LinkedCardsSection } from '../components/LinkedCardsSection'
 import { getAllCards, getAllDecks, getCard, saveCard, saveDeck } from '../lib/db'
@@ -43,17 +44,20 @@ export function CardForm() {
   const [reading, setReading] = useState('')
   const [vocabScenarios, setVocabScenarios] = useState('')
   const [vocabExamples, setVocabExamples] = useState<ExamplePair[]>([{ ja: '', zh: '' }])
+  const [vocabPitfallsText, setVocabPitfallsText] = useState('')
 
   // Grammar
   const [pattern, setPattern] = useState('')
   const [grammarMeaning, setGrammarMeaning] = useState('')
   const [grammarScenarios, setGrammarScenarios] = useState('')
   const [grammarExamples, setGrammarExamples] = useState<ExamplePair[]>([{ ja: '', zh: '' }])
+  const [grammarPitfallsText, setGrammarPitfallsText] = useState('')
 
   // Corpus
   const [scenario, setScenario] = useState('')
   const [corpusWords, setCorpusWords] = useState<CorpusWord[]>([])
   const [corpusPhrases, setCorpusPhrases] = useState<CorpusPhrase[]>([])
+  const [corpusPitfallsText, setCorpusPitfallsText] = useState('')
 
   // Contrast
   const [contrastTitle, setContrastTitle] = useState('')
@@ -176,6 +180,7 @@ export function CardForm() {
         setVocabExamples(
           card.back.examples?.length ? card.back.examples : [{ ja: '', zh: '' }],
         )
+        setVocabPitfallsText((card.back.pitfalls ?? []).join('\n'))
       } else if (card.type === 'grammar') {
         setPattern(card.front.pattern)
         setGrammarMeaning(card.back.meaningZh)
@@ -183,10 +188,12 @@ export function CardForm() {
         setGrammarExamples(
           card.back.examples.length > 0 ? card.back.examples : [{ ja: '', zh: '' }],
         )
+        setGrammarPitfallsText((card.back.pitfalls ?? []).join('\n'))
       } else if (card.type === 'corpus') {
         setScenario(card.front.scenario)
         setCorpusWords(card.back.words)
         setCorpusPhrases(card.back.phrases)
+        setCorpusPitfallsText((card.back.pitfalls ?? []).join('\n'))
       } else {
         setContrastTitle(card.front.title)
         setContrastPrompt(card.front.prompt ?? '')
@@ -260,9 +267,12 @@ export function CardForm() {
 
   const resetStructuredFields = () => {
     setVocabExamples([{ ja: '', zh: '' }])
+    setVocabPitfallsText('')
     setGrammarExamples([{ ja: '', zh: '' }])
+    setGrammarPitfallsText('')
     setCorpusWords([])
     setCorpusPhrases([])
+    setCorpusPitfallsText('')
     setContrastItems([emptyContrastEntry(), emptyContrastEntry()])
     setContrastPitfallsText('')
   }
@@ -309,6 +319,9 @@ export function CardForm() {
 
     const vocabExampleList = normalizeExampleList(vocabExamples)
     const grammarExampleList = normalizeExampleList(grammarExamples)
+    const vocabPitfalls = parseLines(vocabPitfallsText)
+    const grammarPitfalls = parseLines(grammarPitfallsText)
+    const corpusPitfalls = parseLines(corpusPitfallsText)
     if (cardType === 'vocabulary') {
       card = {
         id,
@@ -325,6 +338,7 @@ export function CardForm() {
           reading: reading.trim() || undefined,
           scenarios: parseLines(vocabScenarios),
           examples: vocabExampleList.length > 0 ? vocabExampleList : undefined,
+          pitfalls: vocabPitfalls.length > 0 ? vocabPitfalls : undefined,
         },
       } satisfies VocabularyCard
     } else if (cardType === 'grammar') {
@@ -342,6 +356,7 @@ export function CardForm() {
           meaningZh: grammarMeaning.trim(),
           scenarios: parseLines(grammarScenarios),
           examples: grammarExampleList,
+          pitfalls: grammarPitfalls.length > 0 ? grammarPitfalls : undefined,
         },
       } satisfies GrammarCard
     } else if (cardType === 'corpus') {
@@ -358,7 +373,11 @@ export function CardForm() {
         review,
         linkedCardIds: savedLinkedIds,
         front: { scenario: scenario.trim() },
-        back: { words, phrases },
+        back: {
+          words,
+          phrases,
+          pitfalls: corpusPitfalls.length > 0 ? corpusPitfalls : undefined,
+        },
       } satisfies CorpusCard
     } else {
       const items = contrastItems
@@ -519,6 +538,7 @@ export function CardForm() {
                 value={vocabExamples}
                 onChange={setVocabExamples}
               />
+              <PitfallsFields value={vocabPitfallsText} onChange={setVocabPitfallsText} />
             </>
           )}
 
@@ -532,6 +552,7 @@ export function CardForm() {
                 value={grammarExamples}
                 onChange={setGrammarExamples}
               />
+              <PitfallsFields value={grammarPitfallsText} onChange={setGrammarPitfallsText} />
             </>
           )}
 
@@ -540,6 +561,7 @@ export function CardForm() {
               <Field label="口语场景（正面）" value={scenario} onChange={setScenario} required />
               <CorpusWordFields value={corpusWords} onChange={setCorpusWords} />
               <CorpusPhraseFields value={corpusPhrases} onChange={setCorpusPhrases} />
+              <PitfallsFields value={corpusPitfallsText} onChange={setCorpusPitfallsText} />
             </>
           )}
 

@@ -1,8 +1,10 @@
 import { ExampleLine } from './ExampleDisplay'
+import { PitfallsSection } from './PitfallsSection'
 import {
   CARD_TYPE_LABELS,
   FAMILIARITY_LABELS,
   getCardBrief,
+  getCardPitfalls,
   isContrastCard,
   isCorpusCard,
   isGrammarCard,
@@ -83,30 +85,35 @@ function LinkedCardScenariosAndExamples({ card }: { card: Card }) {
   if (isVocabularyCard(card)) {
     const scenarios = card.back.scenarios
     const examples = card.back.examples ?? []
-    if (scenarios.length === 0 && examples.length === 0) return null
+    const pitfalls = getCardPitfalls(card)
+    if (scenarios.length === 0 && examples.length === 0 && pitfalls.length === 0) return null
     return (
       <div className="mt-2 space-y-2 border-t border-card-border/60 pt-2">
         {scenarios.length > 0 && (
           <ScenariosBlock items={scenarios} />
         )}
         {examples.length > 0 && <ExamplesBlock examples={examples} />}
+        <PitfallsSection pitfalls={pitfalls} />
       </div>
     )
   }
 
   if (isGrammarCard(card)) {
     const { scenarios, examples } = card.back
-    if (scenarios.length === 0 && examples.length === 0) return null
+    const pitfalls = getCardPitfalls(card)
+    if (scenarios.length === 0 && examples.length === 0 && pitfalls.length === 0) return null
     return (
       <div className="mt-2 space-y-2 border-t border-card-border/60 pt-2">
         {scenarios.length > 0 && <ScenariosBlock items={scenarios} />}
         {examples.length > 0 && <ExamplesBlock examples={examples} />}
+        <PitfallsSection pitfalls={pitfalls} />
       </div>
     )
   }
 
   if (isContrastCard(card)) {
-    const { items, pitfalls = [] } = card.back
+    const { items } = card.back
+    const pitfalls = getCardPitfalls(card)
     const hasExamples = items.some(
       (entry) => entry.examples.length > 0 || Boolean(entry.connection?.trim()),
     )
@@ -131,16 +138,7 @@ function LinkedCardScenariosAndExamples({ card }: { card: Card }) {
             </div>
           )
         })}
-        {pitfalls.length > 0 && (
-          <div>
-            <p className="mb-1 text-xs font-medium text-sakura-deep">易混点</p>
-            <ul className="list-inside list-disc text-sm text-sumi">
-              {pitfalls.map((p, i) => (
-                <li key={i}>{p}</li>
-              ))}
-            </ul>
-          </div>
-        )}
+        <PitfallsSection pitfalls={pitfalls} />
       </div>
     )
   }
@@ -148,7 +146,8 @@ function LinkedCardScenariosAndExamples({ card }: { card: Card }) {
   if (isCorpusCard(card)) {
     const scenario = card.front.scenario.trim()
     const phrases = card.back.phrases
-    if (!scenario && phrases.length === 0) return null
+    const pitfalls = getCardPitfalls(card)
+    if (!scenario && phrases.length === 0 && pitfalls.length === 0) return null
     return (
       <div className="mt-2 space-y-2 border-t border-card-border/60 pt-2">
         {scenario && (
@@ -170,6 +169,7 @@ function LinkedCardScenariosAndExamples({ card }: { card: Card }) {
             </ul>
           </div>
         )}
+        <PitfallsSection pitfalls={pitfalls} />
       </div>
     )
   }
