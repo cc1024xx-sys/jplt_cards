@@ -3,7 +3,15 @@ import { Link, useLocation } from 'react-router-dom'
 import { Flashcard } from '../components/Flashcard'
 import { LinkedCardsSection } from '../components/LinkedCardsSection'
 import { getCardTypeOrder, reorderCardTypeOrder } from '../lib/card-type-order'
-import { deleteCard, getAllDecks, getCardsByDeck, linkCards, saveCard, unlinkCards } from '../lib/db'
+import {
+  deleteCard,
+  getAllDecks,
+  getCardsByDeck,
+  linkCards,
+  mergeDuplicateDecks,
+  saveCard,
+  unlinkCards,
+} from '../lib/db'
 import { applyFamiliarity } from '../lib/review-scheduler'
 import {
   CARD_TYPE_LABELS,
@@ -39,6 +47,7 @@ export function Decks() {
   useEffect(() => {
     async function load() {
       setLoading(true)
+      await mergeDuplicateDecks()
       const list = await getAllDecks()
       setDecks(list)
       const allCards: Card[] = []

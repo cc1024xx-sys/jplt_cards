@@ -126,12 +126,12 @@ export function CardForm() {
         createdAt: now,
         updatedAt: now,
       }
-      await saveDeck(deck)
+      const savedId = await saveDeck(deck)
       await loadDecks()
-      setDeckId(deck.id)
+      setDeckId(savedId)
       setShowNewDeckForm(false)
       setNewDeckName('')
-      return deck.id
+      return savedId
     },
     [loadDecks],
   )

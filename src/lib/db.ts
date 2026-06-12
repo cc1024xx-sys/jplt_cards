@@ -1,7 +1,38 @@
 import Dexie, { type Table } from 'dexie'
 import { migrateContrastCard } from './migrate-contrast-card'
 import { migrateCorpusCard } from './migrate-corpus-card'
-import { getCardSearchText, type Card, type Deck } from './types'
+import { getCardSearchText, type Card, type CardType, type Deck } from './types'
+
+export function deckMatchKey(deck: { name: string; cardType: CardType }): string {
+  return `${deck.name.trim().toLowerCase()}::${deck.cardType}`
+}
+
+function pickCanonicalDeck(decks: Deck[]): Deck {
+  return decks.reduce((best, deck) => {
+    if (deck.createdAt < best.createdAt) return deck
+    if (deck.createdAt > best.createdAt) return best
+    return deck.id < best.id ? deck : best
+  })
+}
+
+async function mergeDeckIdsIntoCanonical(
+  sourceIds: string[],
+  targetId: string,
+  cardsTable: Table<Card, string>,
+  decksTable: Table<Deck, string>,
+): Promise<void> {
+  const sources = sourceIds.filter((id) => id !== targetId)
+  if (sources.length === 0) return
+
+  const now = new Date().toISOString()
+  for (const sourceId of sources) {
+    const cards = await cardsTable.filter((card) => card.deckId === sourceId).toArray()
+    for (const card of cards) {
+      await cardsTable.put({ ...card, deckId: targetId, updatedAt: now })
+    }
+    await decksTable.delete(sourceId)
+  }
+}
 
 export class JapaneseLearningDB extends Dexie {
   decks!: Table<Deck, string>
@@ -64,8 +95,69 @@ export async function getDeck(id: string): Promise<Deck | undefined> {
   return db.decks.get(id)
 }
 
-export async function saveDeck(deck: Deck): Promise<void> {
-  await db.decks.put(deck)
+/** 保存牌组；若存在同名同类型牌组则自动合并并返回保留的牌组 id */
+export async function saveDeck(deck: Deck): Promise<string> {
+  const normalized: Deck = {
+    ...deck,
+    name: deck.name.trim(),
+    updatedAt: deck.updatedAt || new Date().toISOString(),
+  }
+
+  const allDecks = await db.decks.toArray()
+  const duplicates = allDecks.filter(
+    (d) => d.id !== normalized.id && deckMatchKey(d) === deckMatchKey(normalized),
+  )
+
+  if (duplicates.length === 0) {
+    await db.decks.put(normalized)
+    return normalized.id
+  }
+
+  const canonical = pickCanonicalDeck([normalized, ...duplicates])
+  const sourcesToMerge = [normalized.id, ...duplicates.map((d) => d.id)].filter(
+    (id) => id !== canonical.id,
+  )
+
+  await db.transaction('rw', db.decks, db.cards, async (tx) => {
+    const decksTable = tx.table<Deck, string>('decks')
+    const cardsTable = tx.table<Card, string>('cards')
+    await decksTable.put({
+      ...canonical,
+      name: normalized.name,
+      updatedAt: normalized.updatedAt,
+    })
+    await mergeDeckIdsIntoCanonical(sourcesToMerge, canonical.id, cardsTable, decksTable)
+  })
+
+  return canonical.id
+}
+
+/** 合并数据库中所有同名同类型牌组，返回被合并掉的牌组数量 */
+export async function mergeDuplicateDecks(): Promise<number> {
+  const allDecks = await db.decks.toArray()
+  const groups = new Map<string, Deck[]>()
+  for (const deck of allDecks) {
+    const key = deckMatchKey(deck)
+    const list = groups.get(key) ?? []
+    list.push(deck)
+    groups.set(key, list)
+  }
+
+  let mergedCount = 0
+  await db.transaction('rw', db.decks, db.cards, async (tx) => {
+    const decksTable = tx.table<Deck, string>('decks')
+    const cardsTable = tx.table<Card, string>('cards')
+
+    for (const decks of groups.values()) {
+      if (decks.length <= 1) continue
+      const canonical = pickCanonicalDeck(decks)
+      const sources = decks.filter((d) => d.id !== canonical.id).map((d) => d.id)
+      await mergeDeckIdsIntoCanonical(sources, canonical.id, cardsTable, decksTable)
+      mergedCount += sources.length
+    }
+  })
+
+  return mergedCount
 }
 
 async function removeLinkedCardReferences(
@@ -205,25 +297,55 @@ export async function mergeImportedData(
   skippedDeckCount: number
   skippedCardCount: number
 }> {
-  const existingDeckIds = new Set((await db.decks.toArray()).map((d) => d.id))
-  const existingCardIds = new Set((await db.cards.toArray()).map((c) => c.id))
+  await mergeDuplicateDecks()
 
-  const decksToAdd = importedDecks.filter((d) => !existingDeckIds.has(d.id))
+  const existingDecks = await db.decks.toArray()
+  const existingDeckIds = new Set(existingDecks.map((d) => d.id))
+  const existingCardIds = new Set((await db.cards.toArray()).map((c) => c.id))
+  const deckIdByKey = new Map(existingDecks.map((d) => [deckMatchKey(d), d.id]))
+
+  const deckIdRemap = new Map<string, string>()
+  const decksToAdd: Deck[] = []
+  let skippedDeckCount = 0
+
+  for (const deck of importedDecks) {
+    if (existingDeckIds.has(deck.id)) {
+      skippedDeckCount++
+      continue
+    }
+    const key = deckMatchKey(deck)
+    const existingId = deckIdByKey.get(key)
+    if (existingId) {
+      deckIdRemap.set(deck.id, existingId)
+      skippedDeckCount++
+      continue
+    }
+    decksToAdd.push(deck)
+    deckIdByKey.set(key, deck.id)
+    existingDeckIds.add(deck.id)
+  }
+
   const validDeckIds = new Set([...existingDeckIds, ...decksToAdd.map((d) => d.id)])
 
-  const cardsToAdd = importedCards.filter(
-    (c) => !existingCardIds.has(c.id) && validDeckIds.has(c.deckId),
-  )
+  const cardsToAdd = importedCards
+    .filter((c) => !existingCardIds.has(c.id))
+    .map((c) => ({
+      ...c,
+      deckId: deckIdRemap.get(c.deckId) ?? c.deckId,
+    }))
+    .filter((c) => validDeckIds.has(c.deckId))
 
   await db.transaction('rw', db.decks, db.cards, async () => {
     if (decksToAdd.length) await db.decks.bulkPut(decksToAdd)
     if (cardsToAdd.length) await db.cards.bulkPut(cardsToAdd)
   })
 
+  await mergeDuplicateDecks()
+
   return {
     addedDeckCount: decksToAdd.length,
     addedCardCount: cardsToAdd.length,
-    skippedDeckCount: importedDecks.length - decksToAdd.length,
+    skippedDeckCount,
     skippedCardCount: importedCards.length - cardsToAdd.length,
   }
 }

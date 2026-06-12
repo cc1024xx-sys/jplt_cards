@@ -69,7 +69,11 @@ export function DeckDetail() {
       name: trimmed,
       updatedAt: new Date().toISOString(),
     }
-    await saveDeck(updated)
+    const savedId = await saveDeck(updated)
+    if (savedId !== deck.id) {
+      navigate(`/decks/${savedId}`, { replace: true })
+      return
+    }
     setDeck(updated)
     setDeckName(trimmed)
     setNameDraft(trimmed)

@@ -1,7 +1,14 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getCardTypeOrder } from '../lib/card-type-order'
-import { cleanupOrphanedCards, deleteDeck, getAllDecks, getCardsByDeck, saveDeck } from '../lib/db'
+import {
+  cleanupOrphanedCards,
+  deleteDeck,
+  getAllDecks,
+  getCardsByDeck,
+  mergeDuplicateDecks,
+  saveDeck,
+} from '../lib/db'
 import { CARD_TYPE_LABELS, type CardType, type Deck } from '../lib/types'
 
 export function DeckEdit() {
@@ -16,6 +23,7 @@ export function DeckEdit() {
 
   const loadDecks = async () => {
     await cleanupOrphanedCards()
+    await mergeDuplicateDecks()
     const list = await getAllDecks()
     setDecks(list)
     setLoading(false)
