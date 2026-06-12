@@ -9,12 +9,16 @@ import {
   mergeDuplicateDecks,
   saveDeck,
 } from '../lib/db'
+import { generateId } from '../lib/id'
 import { CARD_TYPE_LABELS, type CardType, type Deck } from '../lib/types'
 
 export function DeckEdit() {
   const [decks, setDecks] = useState<Deck[]>([])
   const [loading, setLoading] = useState(true)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [creatingType, setCreatingType] = useState<CardType | null>(null)
+  const [newDeckName, setNewDeckName] = useState('')
+  const [creating, setCreating] = useState(false)
   const [draft, setDraft] = useState({
     name: '',
     cardType: 'vocabulary' as CardType,
@@ -34,6 +38,8 @@ export function DeckEdit() {
   }, [])
 
   const startEdit = (deck: Deck) => {
+    setCreatingType(null)
+    setNewDeckName('')
     setEditingId(deck.id)
     setDraft({
       name: deck.name,
@@ -52,6 +58,29 @@ export function DeckEdit() {
       updatedAt: new Date().toISOString(),
     })
     setEditingId(null)
+    await loadDecks()
+  }
+
+  const startCreate = (type: CardType) => {
+    setEditingId(null)
+    setCreatingType(type)
+    setNewDeckName('')
+  }
+
+  const handleCreate = async (type: CardType) => {
+    if (!newDeckName.trim()) return
+    setCreating(true)
+    const now = new Date().toISOString()
+    await saveDeck({
+      id: generateId(),
+      name: newDeckName.trim(),
+      cardType: type,
+      createdAt: now,
+      updatedAt: now,
+    })
+    setCreating(false)
+    setCreatingType(null)
+    setNewDeckName('')
     await loadDecks()
   }
 
@@ -90,15 +119,57 @@ export function DeckEdit() {
         </Link>
       </div>
 
-      {decks.length === 0 ? (
-        <p className="text-sm text-sumi-muted">当前没有可编辑牌组。</p>
-      ) : (
-        <div className="flex flex-col gap-3">
-          {groupOrder.map((type) => (
-            <section key={type} className="rounded-xl border border-card-border bg-white p-3">
-              <p className="mb-2 font-medium text-sumi">{CARD_TYPE_LABELS[type]}</p>
-              <div className="space-y-2">
-                {decksByType[type].map((deck) => (
+      <div className="flex flex-col gap-3">
+        {groupOrder.map((type) => (
+          <section key={type} className="rounded-xl border border-card-border bg-white p-3">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <p className="font-medium text-sumi">{CARD_TYPE_LABELS[type]}</p>
+              <button
+                type="button"
+                onClick={() => startCreate(type)}
+                className="shrink-0 rounded border border-sakura/40 bg-sakura/10 px-2.5 py-1 text-xs text-sakura-deep hover:bg-sakura/20"
+              >
+                ＋ 新建牌组
+              </button>
+            </div>
+
+            {creatingType === type && (
+              <div className="mb-2 space-y-2 rounded-lg border border-dashed border-card-border bg-washi/50 p-3">
+                <input
+                  value={newDeckName}
+                  onChange={(e) => setNewDeckName(e.target.value)}
+                  placeholder="牌组名称"
+                  className="w-full rounded-lg border border-card-border bg-white px-3 py-2 text-sm"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') void handleCreate(type)
+                    if (e.key === 'Escape') setCreatingType(null)
+                  }}
+                />
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    disabled={creating || !newDeckName.trim()}
+                    onClick={() => void handleCreate(type)}
+                    className="rounded-lg bg-indigo-ja-dark px-3 py-1.5 text-xs text-white disabled:opacity-50"
+                  >
+                    {creating ? '创建中…' : '创建'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCreatingType(null)}
+                    className="rounded-lg border border-card-border px-3 py-1.5 text-xs text-sumi-muted"
+                  >
+                    取消
+                  </button>
+                </div>
+                <p className="text-xs text-sumi-muted">
+                  若已存在同名同类型牌组，将自动合并。
+                </p>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              {decksByType[type].map((deck) => (
                   <div key={deck.id} className="rounded-lg border border-card-border bg-washi/40 p-3">
                     <div className="flex items-center justify-between gap-2">
                       <p className="min-w-0 truncate text-sm font-medium text-sumi">{deck.name}</p>
@@ -167,14 +238,13 @@ export function DeckEdit() {
                     )}
                   </div>
                 ))}
-                {decksByType[type].length === 0 && (
-                  <p className="text-xs text-sumi-muted">该类型暂无牌组</p>
-                )}
-              </div>
-            </section>
-          ))}
-        </div>
-      )}
+              {decksByType[type].length === 0 && creatingType !== type && (
+                <p className="text-xs text-sumi-muted">该类型暂无牌组</p>
+              )}
+            </div>
+          </section>
+        ))}
+      </div>
     </div>
   )
 }
