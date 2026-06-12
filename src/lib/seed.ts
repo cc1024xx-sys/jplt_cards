@@ -91,14 +91,30 @@ export async function seedSampleData(): Promise<void> {
     front: { scenario: '在便利店买饮料' },
     back: {
       words: [
-        { ja: 'コーヒー', zh: '咖啡', reading: 'こーひー' },
+        {
+          ja: 'コーヒー',
+          zh: '咖啡',
+          reading: 'こーひー',
+          collocations: [{ ja: 'コーヒーを飲む', zh: '喝咖啡' }],
+        },
         { ja: 'お茶', zh: '茶', reading: 'おちゃ' },
-        { ja: '袋', zh: '袋子', reading: 'ふくろ' },
+        {
+          ja: '袋',
+          zh: '袋子',
+          reading: 'ふくろ',
+          collocations: [{ ja: '袋をもらう', zh: '要个袋子' }],
+        },
       ],
       phrases: [
         { ja: 'これください', zh: '请给我这个' },
         { ja: '袋いりますか', zh: '需要袋子吗', note: '店员常用问句' },
         { ja: '大丈夫です', zh: '不用了/没关系' },
+      ],
+      examples: [
+        {
+          ja: 'すみません、このコーヒーをください。',
+          zh: '不好意思，请给我这杯咖啡。',
+        },
       ],
     },
   })

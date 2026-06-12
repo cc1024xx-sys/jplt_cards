@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ContrastFormFields, emptyContrastEntry } from '../components/ContrastFields'
 import { CorpusPhraseFields, CorpusWordFields } from '../components/CorpusFields'
 import { ExampleFields } from '../components/ExampleFields'
@@ -57,6 +57,7 @@ export function CardForm() {
   const [scenario, setScenario] = useState('')
   const [corpusWords, setCorpusWords] = useState<CorpusWord[]>([])
   const [corpusPhrases, setCorpusPhrases] = useState<CorpusPhrase[]>([])
+  const [corpusExamples, setCorpusExamples] = useState<ExamplePair[]>([{ ja: '', zh: '' }])
   const [corpusPitfallsText, setCorpusPitfallsText] = useState('')
 
   // Contrast
@@ -193,6 +194,9 @@ export function CardForm() {
         setScenario(card.front.scenario)
         setCorpusWords(card.back.words)
         setCorpusPhrases(card.back.phrases)
+        setCorpusExamples(
+          card.back.examples?.length ? card.back.examples : [{ ja: '', zh: '' }],
+        )
         setCorpusPitfallsText((card.back.pitfalls ?? []).join('\n'))
       } else {
         setContrastTitle(card.front.title)
@@ -249,11 +253,21 @@ export function CardForm() {
 
   const normalizeCorpusWords = (words: CorpusWord[]): CorpusWord[] =>
     words
-      .map((w) => ({
-        ja: w.ja.trim(),
-        zh: w.zh.trim(),
-        reading: w.reading?.trim() || undefined,
-      }))
+      .map((w) => {
+        const collocations = (w.collocations ?? [])
+          .map((c) => ({
+            ja: c.ja.trim(),
+            zh: c.zh.trim(),
+            note: c.note?.trim() || undefined,
+          }))
+          .filter((c) => c.ja && c.zh)
+        return {
+          ja: w.ja.trim(),
+          zh: w.zh.trim(),
+          reading: w.reading?.trim() || undefined,
+          collocations: collocations.length > 0 ? collocations : undefined,
+        }
+      })
       .filter((w) => w.ja && w.zh)
 
   const normalizeCorpusPhrases = (phrases: CorpusPhrase[]): CorpusPhrase[] =>
@@ -272,6 +286,7 @@ export function CardForm() {
     setGrammarPitfallsText('')
     setCorpusWords([])
     setCorpusPhrases([])
+    setCorpusExamples([{ ja: '', zh: '' }])
     setCorpusPitfallsText('')
     setContrastItems([emptyContrastEntry(), emptyContrastEntry()])
     setContrastPitfallsText('')
@@ -321,6 +336,7 @@ export function CardForm() {
     const grammarExampleList = normalizeExampleList(grammarExamples)
     const vocabPitfalls = parseLines(vocabPitfallsText)
     const grammarPitfalls = parseLines(grammarPitfallsText)
+    const corpusExampleList = normalizeExampleList(corpusExamples)
     const corpusPitfalls = parseLines(corpusPitfallsText)
     if (cardType === 'vocabulary') {
       card = {
@@ -376,6 +392,7 @@ export function CardForm() {
         back: {
           words,
           phrases,
+          examples: corpusExampleList.length > 0 ? corpusExampleList : undefined,
           pitfalls: corpusPitfalls.length > 0 ? corpusPitfalls : undefined,
         },
       } satisfies CorpusCard
@@ -418,6 +435,8 @@ export function CardForm() {
 
   const filteredDecks = decks.filter((d) => d.cardType === cardType)
   const selectDecks = isEdit ? decks : filteredDecks
+  const lockedToPresetDeck = !isEdit && Boolean(presetDeckId)
+  const presetDeck = presetDeckId ? decks.find((d) => d.id === presetDeckId) : undefined
   const canSubmitNew =
     isEdit || selectDecks.length > 0 || Boolean(deckId) || newDeckName.trim().length > 0
 
@@ -437,10 +456,22 @@ export function CardForm() {
 
   return (
     <div>
+      {lockedToPresetDeck && (
+        <Link
+          to={`/decks/${presetDeckId}`}
+          className="mb-3 inline-block text-sm text-sumi-muted no-underline hover:text-indigo-ja-dark"
+        >
+          ← 返回牌组
+        </Link>
+      )}
       <h1 className="mb-4 text-xl font-medium">{isEdit ? '编辑闪卡' : '新建闪卡'}</h1>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          {!isEdit && (
+          {!isEdit && lockedToPresetDeck ? (
+            <p className="text-sm text-sumi-muted">
+              类型：{CARD_TYPE_LABELS[cardType]}
+            </p>
+          ) : !isEdit ? (
             <label className="flex flex-col gap-1">
               <span className="text-sm text-sumi-muted">类型</span>
               <select
@@ -455,12 +486,12 @@ export function CardForm() {
                 ))}
               </select>
             </label>
-          )}
+          ) : null}
 
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between gap-2">
               <span className="text-sm text-sumi-muted">牌组</span>
-              {!isEdit && (
+              {!isEdit && !lockedToPresetDeck && (
                 <button
                   type="button"
                   onClick={() => setShowNewDeckForm((v) => !v)}
@@ -471,7 +502,11 @@ export function CardForm() {
               )}
             </div>
 
-            {selectDecks.length > 0 && (
+            {lockedToPresetDeck ? (
+              <p className="rounded-lg border border-card-border bg-washi/50 px-3 py-2 text-sm text-sumi">
+                {presetDeck?.name ?? '当前牌组'}
+              </p>
+            ) : selectDecks.length > 0 ? (
               <select
                 value={deckId}
                 onChange={(e) => setDeckId(e.target.value)}
@@ -488,13 +523,13 @@ export function CardForm() {
                   </option>
                 ))}
               </select>
-            )}
+            ) : null}
 
-            {!isEdit && selectDecks.length === 0 && !showNewDeckForm && (
+            {!isEdit && !lockedToPresetDeck && selectDecks.length === 0 && !showNewDeckForm && (
               <p className="text-xs text-sumi-muted">当前类型暂无牌组，请新建牌组。</p>
             )}
 
-            {!isEdit && (showNewDeckForm || selectDecks.length === 0) && (
+            {!isEdit && !lockedToPresetDeck && (showNewDeckForm || selectDecks.length === 0) && (
               <div className="rounded-xl border border-dashed border-card-border bg-washi/50 p-3">
                 <p className="mb-2 text-xs text-sumi-muted">
                   新建 {CARD_TYPE_LABELS[cardType]} 牌组
@@ -561,6 +596,11 @@ export function CardForm() {
               <Field label="口语场景（正面）" value={scenario} onChange={setScenario} required />
               <CorpusWordFields value={corpusWords} onChange={setCorpusWords} />
               <CorpusPhraseFields value={corpusPhrases} onChange={setCorpusPhrases} />
+              <ExampleFields
+                label="典型例句"
+                value={corpusExamples}
+                onChange={setCorpusExamples}
+              />
               <PitfallsFields value={corpusPitfallsText} onChange={setCorpusPitfallsText} />
             </>
           )}

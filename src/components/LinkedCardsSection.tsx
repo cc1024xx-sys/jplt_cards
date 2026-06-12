@@ -145,9 +145,22 @@ function LinkedCardScenariosAndExamples({ card }: { card: Card }) {
 
   if (isCorpusCard(card)) {
     const scenario = card.front.scenario.trim()
+    const words = card.back.words
     const phrases = card.back.phrases
+    const examples = card.back.examples ?? []
     const pitfalls = getCardPitfalls(card)
-    if (!scenario && phrases.length === 0 && pitfalls.length === 0) return null
+    const hasWords = words.some(
+      (w) => w.ja || w.zh || (w.collocations?.length ?? 0) > 0,
+    )
+    if (
+      !scenario &&
+      !hasWords &&
+      phrases.length === 0 &&
+      examples.length === 0 &&
+      pitfalls.length === 0
+    ) {
+      return null
+    }
     return (
       <div className="mt-2 space-y-2 border-t border-card-border/60 pt-2">
         {scenario && (
@@ -156,14 +169,53 @@ function LinkedCardScenariosAndExamples({ card }: { card: Card }) {
             <p className="text-sm text-sumi">{scenario}</p>
           </div>
         )}
+        {hasWords && (
+          <div>
+            <p className="mb-1 text-xs font-medium text-sakura-deep">常用单词</p>
+            <ul className="space-y-1.5">
+              {words.map((w, i) => (
+                <li key={i} className="text-sm">
+                  <p className="text-sumi">
+                    {w.ja}
+                    {w.reading && <span className="ml-1 text-sumi-muted">({w.reading})</span>}
+                    <span className="mx-1 text-sumi-muted">·</span>
+                    <span className="text-sumi-muted">{w.zh}</span>
+                  </p>
+                  {(w.collocations?.length ?? 0) > 0 && (
+                    <ul className="mt-1 space-y-1 border-l-2 border-indigo-ja/20 pl-2">
+                      {w.collocations!.map((c, j) => (
+                        <li key={j}>
+                          <p className="text-sumi">{c.ja}</p>
+                          <p className="text-sumi-muted">{c.zh}</p>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         {phrases.length > 0 && (
           <div>
-            <p className="mb-1 text-xs font-medium text-sakura-deep">例句</p>
+            <p className="mb-1 text-xs font-medium text-sakura-deep">常用句式</p>
             <ul className="space-y-1.5">
               {phrases.map((p, i) => (
                 <li key={i} className="text-sm">
                   <p className="text-sumi">{p.ja}</p>
                   <p className="text-sumi-muted">{p.zh}</p>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {examples.length > 0 && (
+          <div>
+            <p className="mb-1 text-xs font-medium text-sakura-deep">典型例句</p>
+            <ul className="space-y-1.5">
+              {examples.map((ex, i) => (
+                <li key={i} className="text-sm">
+                  <ExampleLine ex={ex} />
                 </li>
               ))}
             </ul>

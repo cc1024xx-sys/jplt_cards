@@ -1,4 +1,4 @@
-import type { CorpusPhrase, CorpusWord } from './types'
+import type { CorpusPhrase, CorpusWord, CorpusWordCollocation } from './types'
 
 const PAIR_SEPARATORS = ['｜', '|', '：', ':', '\t'] as const
 
@@ -20,6 +20,35 @@ export function parseCorpusWordLine(line: string): CorpusWord | null {
   const [ja, zh, reading] = parts
   if (!ja || !zh) return null
   return { ja, zh, reading: reading || undefined }
+}
+
+export function parseWordCollocationLine(line: string): CorpusWordCollocation | null {
+  const parts = splitDelimitedLine(line)
+  if (!parts || parts.length < 2) return null
+  const [ja, zh, note] = parts
+  if (!ja || !zh) return null
+  return { ja, zh, note: note || undefined }
+}
+
+export function formatWordCollocationsText(collocations: CorpusWordCollocation[]): string {
+  return collocations
+    .map((c) => [c.ja, c.zh, c.note].filter(Boolean).join('|'))
+    .join('\n')
+}
+
+export function parseWordCollocationsText(text: string): CorpusWordCollocation[] {
+  return text
+    .split('\n')
+    .map((line) => parseWordCollocationLine(line))
+    .filter((x): x is CorpusWordCollocation => x !== null)
+}
+
+export function countInvalidWordCollocationLines(text: string): number {
+  return text
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((line) => parseWordCollocationLine(line) === null).length
 }
 
 export function parseCorpusPhraseLine(line: string): CorpusPhrase | null {

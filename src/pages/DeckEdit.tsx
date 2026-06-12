@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getCardTypeOrder } from '../lib/card-type-order'
-import { deleteDeck, getAllDecks, saveDeck } from '../lib/db'
+import { cleanupOrphanedCards, deleteDeck, getAllDecks, getCardsByDeck, saveDeck } from '../lib/db'
 import { CARD_TYPE_LABELS, type CardType, type Deck } from '../lib/types'
 
 export function DeckEdit() {
@@ -15,6 +15,7 @@ export function DeckEdit() {
   })
 
   const loadDecks = async () => {
+    await cleanupOrphanedCards()
     const list = await getAllDecks()
     setDecks(list)
     setLoading(false)
@@ -47,7 +48,13 @@ export function DeckEdit() {
   }
 
   const handleDelete = async (deckId: string) => {
-    if (!confirm('确定删除该牌组及其所有闪卡？')) return
+    const cardsInDeck = await getCardsByDeck(deckId)
+    const cardCount = cardsInDeck.length
+    const message =
+      cardCount > 0
+        ? `确定删除该牌组及其 ${cardCount} 张闪卡？此操作不可恢复。`
+        : '确定删除该牌组？此操作不可恢复。'
+    if (!confirm(message)) return
     await deleteDeck(deckId)
     if (editingId === deckId) setEditingId(null)
     await loadDecks()

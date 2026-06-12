@@ -249,20 +249,42 @@ export function CardBack({
             <p className="mb-2 text-xs font-medium text-matcha-deep">常用单词</p>
             <div className="space-y-2">
               {card.back.words.map((w, i) => (
-                <div key={i} className="flex justify-between gap-2 text-sm">
-                  <div className="flex items-center gap-2">
-                    <span>
-                      {w.ja}
-                      {w.reading && <span className="ml-1 text-sumi-muted">({w.reading})</span>}
-                    </span>
-                    <CopyButton
-                      text={w.ja}
-                      copyKey={`corpus-word-ja-${card.id}-${i}`}
-                      copiedKey={copiedKey}
-                      onCopy={onCopy}
-                    />
+                <div key={i} className="rounded-lg bg-washi/60 p-2 text-sm">
+                  <div className="flex justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span>
+                        {w.ja}
+                        {w.reading && <span className="ml-1 text-sumi-muted">({w.reading})</span>}
+                      </span>
+                      <CopyButton
+                        text={w.ja}
+                        copyKey={`corpus-word-ja-${card.id}-${i}`}
+                        copiedKey={copiedKey}
+                        onCopy={onCopy}
+                      />
+                    </div>
+                    <span className="text-sumi-muted">{w.zh}</span>
                   </div>
-                  <span className="text-sumi-muted">{w.zh}</span>
+                  {(w.collocations?.length ?? 0) > 0 && (
+                    <div className="mt-2 space-y-1 border-t border-card-border/60 pt-2">
+                      <p className="text-xs font-medium text-indigo-ja-dark">常用搭配</p>
+                      {w.collocations!.map((c, j) => (
+                        <div key={j} className="flex items-start gap-2">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sumi">{c.ja}</p>
+                            <p className="text-sumi-muted">{c.zh}</p>
+                            {c.note && <p className="mt-0.5 text-xs text-sumi-muted">{c.note}</p>}
+                          </div>
+                          <CopyButton
+                            text={c.ja}
+                            copyKey={`corpus-word-collocation-${card.id}-${i}-${j}`}
+                            copiedKey={copiedKey}
+                            onCopy={onCopy}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -287,6 +309,32 @@ export function CardBack({
                   {p.note && <p className="mt-1 text-xs text-sumi-muted">{p.note}</p>}
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+        {(card.back.examples?.length ?? 0) > 0 && (
+          <div>
+            <p className="mb-2 text-xs font-medium text-sakura-deep">典型例句</p>
+            <div className="space-y-2">
+              {card.back.examples!.map((ex, i) => {
+                const text = formatExampleText(ex)
+                if (!text) return null
+                return (
+                  <div key={i} className="rounded-lg bg-washi p-3 text-sm">
+                    <div className="flex items-start gap-2">
+                      <div className="min-w-0 flex-1">
+                        <ExampleLine ex={ex} />
+                      </div>
+                      <CopyButton
+                        text={text}
+                        copyKey={`corpus-example-${card.id}-${i}`}
+                        copiedKey={copiedKey}
+                        onCopy={onCopy}
+                      />
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           </div>
         )}

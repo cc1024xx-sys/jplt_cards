@@ -2,12 +2,14 @@ import { useState, type DragEvent, type ReactNode } from 'react'
 import {
   countInvalidCorpusPhraseLines,
   countInvalidCorpusWordLines,
+  formatWordCollocationsText,
   parseCorpusPhraseLines,
   parseCorpusWordLines,
+  parseWordCollocationsText,
 } from '../lib/parse-card-fields'
 import type { CorpusPhrase, CorpusWord } from '../lib/types'
 
-type WordRow = { ja: string; zh: string; reading: string }
+type WordRow = { ja: string; zh: string; reading: string; collocationsText: string }
 type PhraseRow = { ja: string; zh: string; note: string }
 
 function reorderByIndex<T>(items: T[], from: number, to: number): T[] {
@@ -78,16 +80,25 @@ export function CorpusWordFields({ value, onChange }: CorpusWordFieldsProps) {
   const [bulkText, setBulkText] = useState('')
   const rows: WordRow[] =
     value.length > 0
-      ? value.map((w) => ({ ja: w.ja, zh: w.zh, reading: w.reading ?? '' }))
-      : [{ ja: '', zh: '', reading: '' }]
+      ? value.map((w) => ({
+          ja: w.ja,
+          zh: w.zh,
+          reading: w.reading ?? '',
+          collocationsText: formatWordCollocationsText(w.collocations ?? []),
+        }))
+      : [{ ja: '', zh: '', reading: '', collocationsText: '' }]
 
   const emit = (next: WordRow[]) => {
     onChange(
-      next.map((r) => ({
-        ja: r.ja,
-        zh: r.zh,
-        reading: r.reading.trim() || undefined,
-      })),
+      next.map((r) => {
+        const collocations = parseWordCollocationsText(r.collocationsText)
+        return {
+          ja: r.ja,
+          zh: r.zh,
+          reading: r.reading.trim() || undefined,
+          collocations: collocations.length > 0 ? collocations : undefined,
+        }
+      }),
     )
   }
 
@@ -95,11 +106,11 @@ export function CorpusWordFields({ value, onChange }: CorpusWordFieldsProps) {
     emit(rows.map((row, i) => (i === index ? { ...row, [field]: text } : row)))
   }
 
-  const addRow = () => emit([...rows, { ja: '', zh: '', reading: '' }])
+  const addRow = () => emit([...rows, { ja: '', zh: '', reading: '', collocationsText: '' }])
 
   const removeRow = (index: number) => {
     const next = rows.filter((_, i) => i !== index)
-    emit(next.length > 0 ? next : [{ ja: '', zh: '', reading: '' }])
+    emit(next.length > 0 ? next : [{ ja: '', zh: '', reading: '', collocationsText: '' }])
   }
 
   const drag = useDragReorder(rows, emit)
@@ -126,7 +137,7 @@ export function CorpusWordFields({ value, onChange }: CorpusWordFieldsProps) {
   return (
     <StructuredBlock
       label="常用单词"
-      orderHint="拖动左侧手柄调整整行顺序"
+      orderHint="拖动左侧手柄调整整行顺序；常用搭配列每行填写「搭配|中文」"
       addLabel="＋ 添加单词"
       bulkHint="批量粘贴（每行：日语|中文|读音可选，支持全角｜）"
       bulkPlaceholder="コーヒー|咖啡|こーひー"
@@ -136,7 +147,7 @@ export function CorpusWordFields({ value, onChange }: CorpusWordFieldsProps) {
       onAdd={addRow}
     >
       <CorpusTable
-        columns={['', '日语', '中文', '读音（可选）', '操作']}
+        columns={['', '日语', '中文', '读音（可选）', '常用搭配', '操作']}
         rowCount={rows.length}
       >
         {rows.map((row, index) => (
@@ -172,10 +183,25 @@ export function CorpusWordFields({ value, onChange }: CorpusWordFieldsProps) {
                 className={inputClass}
               />
             </TableCell>
+            <TableCell className="min-w-[12rem]">
+              <textarea
+                value={row.collocationsText}
+                onChange={(e) => updateRow(index, 'collocationsText', e.target.value)}
+                placeholder={'每行：搭配|中文\n例：コーヒーを飲む|喝咖啡'}
+                rows={2}
+                className={`${inputClass} min-h-[4.5rem] resize-y`}
+              />
+            </TableCell>
             <TableCell className="w-16">
               <RemoveButton
                 onClick={() => removeRow(index)}
-                disabled={rows.length === 1 && !row.ja && !row.zh && !row.reading}
+                disabled={
+                  rows.length === 1 &&
+                  !row.ja &&
+                  !row.zh &&
+                  !row.reading &&
+                  !row.collocationsText.trim()
+                }
               />
             </TableCell>
           </DraggableTableRow>

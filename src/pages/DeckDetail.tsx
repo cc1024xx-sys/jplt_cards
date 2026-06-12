@@ -6,18 +6,29 @@ import {
   getDeck,
   linkCards,
   saveCard,
+  saveDeck,
   searchCards,
   unlinkCards,
 } from '../lib/db'
 import { Flashcard } from '../components/Flashcard'
 import { LinkedCardsSection } from '../components/LinkedCardsSection'
 import { applyFamiliarity } from '../lib/review-scheduler'
-import { FAMILIARITY_LABELS, getCardFrontText, type Card, type Familiarity } from '../lib/types'
+import {
+  CARD_TYPE_LABELS,
+  FAMILIARITY_LABELS,
+  getCardFrontText,
+  type Card,
+  type Deck,
+  type Familiarity,
+} from '../lib/types'
 
 export function DeckDetail() {
   const { deckId } = useParams<{ deckId: string }>()
   const navigate = useNavigate()
+  const [deck, setDeck] = useState<Deck | null>(null)
   const [deckName, setDeckName] = useState('')
+  const [isEditingName, setIsEditingName] = useState(false)
+  const [nameDraft, setNameDraft] = useState('')
   const [cards, setCards] = useState<Card[]>([])
   const [search, setSearch] = useState('')
   const [allCards, setAllCards] = useState<Card[]>([])
@@ -33,10 +44,42 @@ export function DeckDetail() {
 
   useEffect(() => {
     if (!deckId) return
-    getDeck(deckId).then((d) => setDeckName(d?.name ?? ''))
+    getDeck(deckId).then((d) => {
+      if (!d) {
+        navigate('/decks')
+        return
+      }
+      setDeck(d)
+      setDeckName(d.name)
+      setNameDraft(d.name)
+    })
     void loadDeckCards()
     searchCards('').then(setAllCards)
-  }, [deckId])
+  }, [deckId, navigate])
+
+  const handleSaveName = async () => {
+    if (!deck || !nameDraft.trim()) return
+    const trimmed = nameDraft.trim()
+    if (trimmed === deck.name) {
+      setIsEditingName(false)
+      return
+    }
+    const updated: Deck = {
+      ...deck,
+      name: trimmed,
+      updatedAt: new Date().toISOString(),
+    }
+    await saveDeck(updated)
+    setDeck(updated)
+    setDeckName(trimmed)
+    setNameDraft(trimmed)
+    setIsEditingName(false)
+  }
+
+  const handleCancelNameEdit = () => {
+    setNameDraft(deckName)
+    setIsEditingName(false)
+  }
 
   const handleDeleteDeck = async () => {
     if (!deckId || !confirm('确定删除此牌组及其中所有卡片？')) return
@@ -108,13 +151,70 @@ export function DeckDetail() {
     setAllCards((prev) => prev.map((c) => (c.id === updated.id ? updated : c)))
   }
 
+  const newCardHref = deckId ? `/cards/new?deckId=${deckId}` : '/cards/new'
+
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-2">
-        <h1 className="text-xl font-medium">{deckName || '牌组'}</h1>
+      <Link
+        to="/decks"
+        className="text-sm text-sumi-muted no-underline hover:text-indigo-ja-dark"
+      >
+        ← 返回牌组列表
+      </Link>
+
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          {isEditingName ? (
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <input
+                value={nameDraft}
+                onChange={(e) => setNameDraft(e.target.value)}
+                placeholder="牌组名称"
+                className="min-w-0 flex-1 rounded-lg border border-card-border bg-white px-3 py-2 text-base"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') void handleSaveName()
+                  if (e.key === 'Escape') handleCancelNameEdit()
+                }}
+              />
+              <div className="flex shrink-0 gap-2">
+                <button
+                  type="button"
+                  onClick={() => void handleSaveName()}
+                  disabled={!nameDraft.trim()}
+                  className="rounded-lg bg-indigo-ja-dark px-3 py-1.5 text-sm text-white disabled:opacity-50"
+                >
+                  保存
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCancelNameEdit}
+                  className="rounded-lg border border-card-border px-3 py-1.5 text-sm text-sumi-muted"
+                >
+                  取消
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-xl font-medium text-sumi">{deckName || '牌组'}</h1>
+              {deck && (
+                <span className="rounded-full bg-washi px-2 py-0.5 text-xs text-sumi-muted">
+                  {CARD_TYPE_LABELS[deck.cardType]}
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={() => setIsEditingName(true)}
+                className="rounded border border-card-border px-2 py-0.5 text-xs text-indigo-ja-dark hover:bg-washi"
+              >
+                修改名称
+              </button>
+            </div>
+          )}
+        </div>
         <div className="flex shrink-0 items-center gap-2">
           <Link
-            to={`/cards/new?deckId=${deckId}`}
+            to={newCardHref}
             className="rounded-lg border border-sakura/50 bg-sakura/15 px-3 py-1.5 text-sm text-sakura-deep no-underline hover:bg-sakura/25"
           >
             新建闪卡
@@ -136,7 +236,15 @@ export function DeckDetail() {
       />
 
       {cards.length === 0 ? (
-        <p className="text-center text-sm text-sumi-muted">此牌组暂无卡片</p>
+        <div className="rounded-xl border border-dashed border-card-border py-12 text-center">
+          <p className="text-sm text-sumi-muted">此牌组暂无闪卡</p>
+          <Link
+            to={newCardHref}
+            className="mt-3 inline-block rounded-lg border border-sakura/50 bg-sakura/15 px-4 py-2 text-sm text-sakura-deep no-underline hover:bg-sakura/25"
+          >
+            ＋ 新建闪卡
+          </Link>
+        </div>
       ) : (
         <ul className="flex flex-col gap-2">
           {filteredCards.map((card) => (

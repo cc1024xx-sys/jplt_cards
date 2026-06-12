@@ -45,10 +45,17 @@ export interface GrammarBack {
   pitfalls?: string[]
 }
 
+export interface CorpusWordCollocation {
+  ja: string
+  zh: string
+  note?: string
+}
+
 export interface CorpusWord {
   ja: string
   zh: string
   reading?: string
+  collocations?: CorpusWordCollocation[]
 }
 
 export interface CorpusPhrase {
@@ -64,6 +71,7 @@ export interface CorpusFront {
 export interface CorpusBack {
   words: CorpusWord[]
   phrases: CorpusPhrase[]
+  examples?: ExamplePair[]
   pitfalls?: string[]
 }
 
@@ -194,11 +202,23 @@ export function getCardBrief(card: Card): { ja: string; zh: string } {
     const labels = card.back.items.map((i) => i.label).filter(Boolean).join(' · ')
     return { ja: labels || card.front.title, zh: card.front.prompt ?? card.front.title }
   }
+  const scenario = card.front.scenario.trim()
+  const exampleText = (card.back.examples ?? [])
+    .map((ex) => {
+      const ja = ex.ja.trim()
+      const zh = ex.zh.trim()
+      return ja && zh ? `${ja} ${zh}` : ja || zh
+    })
+    .filter(Boolean)
+    .join(' ')
+  if (scenario || exampleText) {
+    return { ja: scenario, zh: exampleText }
+  }
   const phrase = card.back.phrases[0]
   if (phrase) return { ja: phrase.ja, zh: phrase.zh }
   const word = card.back.words[0]
   if (word) return { ja: word.ja, zh: word.zh }
-  return { ja: card.front.scenario, zh: card.front.scenario }
+  return { ja: scenario, zh: scenario }
 }
 
 export function getCardSearchText(card: Card): string {
@@ -230,9 +250,15 @@ export function getCardSearchText(card: Card): string {
   } else {
     for (const w of card.back.words) {
       parts.push(w.ja, w.zh, w.reading ?? '')
+      for (const c of w.collocations ?? []) {
+        parts.push(c.ja, c.zh, c.note ?? '')
+      }
     }
     for (const p of card.back.phrases) {
       parts.push(p.ja, p.zh, p.note ?? '')
+    }
+    for (const ex of card.back.examples ?? []) {
+      parts.push(ex.ja, ex.zh)
     }
     parts.push(...(card.back.pitfalls ?? []))
   }

@@ -9,8 +9,10 @@ import {
   CARD_TYPE_LABELS,
   FAMILIARITY_LABELS,
   getCardBrief,
+  isCorpusCard,
   type Card,
   type CardType,
+  type CorpusCard,
   type Deck,
   type Familiarity,
 } from '../lib/types'
@@ -315,8 +317,14 @@ export function Decks() {
                                     onClick={() => setViewingCardId(card.id)}
                                     className="w-full cursor-pointer rounded-md pr-8 text-left transition-colors hover:bg-washi/80"
                                   >
-                                    <p className="text-sm text-sumi">{brief.ja}</p>
-                                    <p className="mt-0.5 text-sm text-sumi-muted">{brief.zh}</p>
+                                    {isCorpusCard(card) ? (
+                                      <CorpusCardListPreview card={card} />
+                                    ) : (
+                                      <>
+                                        <p className="text-sm text-sumi">{brief.ja}</p>
+                                        <p className="mt-0.5 text-sm text-sumi-muted">{brief.zh}</p>
+                                      </>
+                                    )}
                                   </button>
                                   <div className="mt-1 flex items-center justify-between">
                                     <p className="text-xs text-indigo-ja-dark">
@@ -469,6 +477,55 @@ export function Decks() {
               )}
             </div>
           </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function CorpusCardListPreview({ card }: { card: CorpusCard }) {
+  const scenario = card.front.scenario.trim()
+  const examples = card.back.examples ?? []
+
+  if (!scenario && examples.length === 0) {
+    const phrase = card.back.phrases[0]
+    if (phrase) {
+      return (
+        <>
+          <p className="text-sm text-sumi">{phrase.ja}</p>
+          <p className="mt-0.5 text-sm text-sumi-muted">{phrase.zh}</p>
+        </>
+      )
+    }
+    const word = card.back.words[0]
+    if (word) {
+      return (
+        <>
+          <p className="text-sm text-sumi">{word.ja}</p>
+          <p className="mt-0.5 text-sm text-sumi-muted">{word.zh}</p>
+        </>
+      )
+    }
+    return null
+  }
+
+  return (
+    <div className="space-y-1.5">
+      {scenario && (
+        <p className="text-sm text-sumi">
+          <span className="text-sumi-muted">口语场景 </span>
+          {scenario}
+        </p>
+      )}
+      {examples.length > 0 && (
+        <div className="space-y-1">
+          <p className="text-xs text-sumi-muted">典型例句</p>
+          {examples.map((ex, i) => (
+            <div key={i}>
+              {ex.ja.trim() && <p className="text-sm text-sumi">{ex.ja.trim()}</p>}
+              {ex.zh.trim() && <p className="text-sm text-sumi-muted">{ex.zh.trim()}</p>}
+            </div>
+          ))}
         </div>
       )}
     </div>

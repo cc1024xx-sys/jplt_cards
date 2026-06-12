@@ -1,5 +1,6 @@
 import Dexie, { type Table } from 'dexie'
 import { migrateContrastCard } from './migrate-contrast-card'
+import { migrateCorpusCard } from './migrate-corpus-card'
 import { getCardSearchText, type Card, type Deck } from './types'
 
 export class JapaneseLearningDB extends Dexie {
@@ -67,11 +68,51 @@ export async function saveDeck(deck: Deck): Promise<void> {
   await db.decks.put(deck)
 }
 
-export async function deleteDeck(id: string): Promise<void> {
-  await db.transaction('rw', db.decks, db.cards, async () => {
-    await db.cards.where('deckId').equals(id).delete()
-    await db.decks.delete(id)
+async function removeLinkedCardReferences(
+  cardsTable: Table<Card, string>,
+  deletedIds: Set<string>,
+): Promise<void> {
+  if (deletedIds.size === 0) return
+  const allCards = await cardsTable.toArray()
+  const now = new Date().toISOString()
+  for (const card of allCards) {
+    if (deletedIds.has(card.id)) continue
+    const nextLinks = (card.linkedCardIds ?? []).filter((lid) => !deletedIds.has(lid))
+    if (nextLinks.length !== (card.linkedCardIds ?? []).length) {
+      await cardsTable.put({ ...card, linkedCardIds: nextLinks, updatedAt: now })
+    }
+  }
+}
+
+export async function cleanupOrphanedCards(): Promise<number> {
+  const deckIds = new Set((await db.decks.toArray()).map((deck) => deck.id))
+  const orphans = await db.cards.filter((card) => !deckIds.has(card.deckId)).toArray()
+  if (orphans.length === 0) return 0
+
+  const cardIds = orphans.map((card) => card.id)
+  await db.transaction('rw', db.cards, async (tx) => {
+    const cardsTable = tx.table<Card, string>('cards')
+    await removeLinkedCardReferences(cardsTable, new Set(cardIds))
+    await cardsTable.bulkDelete(cardIds)
   })
+  return orphans.length
+}
+
+export async function deleteDeck(id: string): Promise<void> {
+  await db.transaction('rw', db.decks, db.cards, async (tx) => {
+    const cardsTable = tx.table<Card, string>('cards')
+    const cardsInDeck = await cardsTable.filter((card) => card.deckId === id).toArray()
+    const cardIds = cardsInDeck.map((card) => card.id)
+    const deletedIds = new Set(cardIds)
+
+    if (deletedIds.size > 0) {
+      await removeLinkedCardReferences(cardsTable, deletedIds)
+      await cardsTable.bulkDelete(cardIds)
+    }
+
+    await tx.table<Deck, string>('decks').delete(id)
+  })
+  await cleanupOrphanedCards()
 }
 
 export async function getCardsByDeck(deckId: string): Promise<Card[]> {
@@ -92,7 +133,7 @@ export async function searchCards(query: string, deckId?: string): Promise<Card[
 }
 
 function normalizeCard(card: Card): Card {
-  return migrateContrastCard(card)
+  return migrateCorpusCard(migrateContrastCard(card))
 }
 
 export async function getCard(id: string): Promise<Card | undefined> {
@@ -147,7 +188,12 @@ export async function unlinkCards(cardId: string, targetCardId: string): Promise
 }
 
 export async function deleteCard(id: string): Promise<void> {
-  await db.cards.delete(id)
+  await db.transaction('rw', db.cards, async (tx) => {
+    const cardsTable = tx.table<Card, string>('cards')
+    const deletedIds = new Set([id])
+    await removeLinkedCardReferences(cardsTable, deletedIds)
+    await cardsTable.delete(id)
+  })
 }
 
 export async function mergeImportedData(
