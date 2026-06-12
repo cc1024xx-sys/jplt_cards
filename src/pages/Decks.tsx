@@ -84,6 +84,14 @@ export function Decks() {
     return base
   }, [filteredCards])
 
+  const deckCardCounts = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const card of cards) {
+      counts.set(card.deckId, (counts.get(card.deckId) ?? 0) + 1)
+    }
+    return counts
+  }, [cards])
+
   const decksByType = useMemo(() => {
     const base: Record<CardType, Deck[]> = {
       vocabulary: [],
@@ -94,8 +102,16 @@ export function Decks() {
     for (const deck of decks) {
       base[deck.cardType].push(deck)
     }
+    for (const type of Object.keys(base) as CardType[]) {
+      base[type].sort((a, b) => {
+        const aEmpty = (deckCardCounts.get(a.id) ?? 0) === 0
+        const bEmpty = (deckCardCounts.get(b.id) ?? 0) === 0
+        if (aEmpty !== bEmpty) return aEmpty ? 1 : -1
+        return b.updatedAt.localeCompare(a.updatedAt)
+      })
+    }
     return base
-  }, [decks])
+  }, [decks, deckCardCounts])
 
   const handleTypeDragStart = (type: CardType, e: { dataTransfer: DataTransfer }) => {
     e.dataTransfer.effectAllowed = 'move'

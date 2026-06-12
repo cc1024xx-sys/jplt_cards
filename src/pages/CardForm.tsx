@@ -429,8 +429,7 @@ export function CardForm() {
 
   if (loading) return <p className="text-center text-sumi-muted">加载中…</p>
 
-  const filteredDecks = decks.filter((d) => d.cardType === cardType)
-  const selectDecks = isEdit ? decks : filteredDecks
+  const selectDecks = decks.filter((d) => d.cardType === cardType)
   const lockedToPresetDeck = !isEdit && Boolean(presetDeckId)
   const presetDeck = presetDeckId ? decks.find((d) => d.id === presetDeckId) : undefined
   const canSubmitNew =
@@ -515,17 +514,17 @@ export function CardForm() {
                 {!isEdit && !deckId && <option value="">选择牌组</option>}
                 {selectDecks.map((d) => (
                   <option key={d.id} value={d.id}>
-                    {isEdit ? `${d.name}（${CARD_TYPE_LABELS[d.cardType]}）` : d.name}
+                    {d.name}
                   </option>
                 ))}
               </select>
             ) : null}
 
-            {!lockedToPresetDeck && !isEdit && selectDecks.length === 0 && !showNewDeckForm && (
+            {!lockedToPresetDeck && selectDecks.length === 0 && !showNewDeckForm && (
               <p className="text-xs text-sumi-muted">当前类型暂无牌组，请新建牌组。</p>
             )}
 
-            {!lockedToPresetDeck && (showNewDeckForm || (!isEdit && selectDecks.length === 0)) && (
+            {!lockedToPresetDeck && (showNewDeckForm || selectDecks.length === 0) && (
               <div className="rounded-xl border border-dashed border-card-border bg-washi/50 p-3">
                 <p className="mb-2 text-xs text-sumi-muted">
                   新建 {CARD_TYPE_LABELS[cardType]} 牌组
