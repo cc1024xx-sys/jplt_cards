@@ -303,19 +303,15 @@ export function CardForm() {
     e.preventDefault()
 
     let targetDeckId = deckId
-    if (!targetDeckId && !isEdit) {
-      if (newDeckName.trim()) {
-        setCreatingDeck(true)
-        targetDeckId = (await createDeckForType(newDeckName, cardType)) ?? ''
-        setCreatingDeck(false)
-      }
-      if (!targetDeckId) {
-        alert('请选择牌组，或填写名称新建牌组')
-        return
-      }
+    const shouldCreateDeck =
+      newDeckName.trim() && (showNewDeckForm || (!targetDeckId && !isEdit))
+    if (shouldCreateDeck) {
+      setCreatingDeck(true)
+      targetDeckId = (await createDeckForType(newDeckName, cardType)) ?? ''
+      setCreatingDeck(false)
     }
     if (!targetDeckId) {
-      alert('请选择牌组')
+      alert('请选择牌组，或填写名称新建牌组')
       return
     }
 
@@ -491,7 +487,7 @@ export function CardForm() {
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between gap-2">
               <span className="text-sm text-sumi-muted">牌组</span>
-              {!isEdit && !lockedToPresetDeck && (
+              {!lockedToPresetDeck && (
                 <button
                   type="button"
                   onClick={() => setShowNewDeckForm((v) => !v)}
@@ -525,11 +521,11 @@ export function CardForm() {
               </select>
             ) : null}
 
-            {!isEdit && !lockedToPresetDeck && selectDecks.length === 0 && !showNewDeckForm && (
+            {!lockedToPresetDeck && !isEdit && selectDecks.length === 0 && !showNewDeckForm && (
               <p className="text-xs text-sumi-muted">当前类型暂无牌组，请新建牌组。</p>
             )}
 
-            {!isEdit && !lockedToPresetDeck && (showNewDeckForm || selectDecks.length === 0) && (
+            {!lockedToPresetDeck && (showNewDeckForm || (!isEdit && selectDecks.length === 0)) && (
               <div className="rounded-xl border border-dashed border-card-border bg-washi/50 p-3">
                 <p className="mb-2 text-xs text-sumi-muted">
                   新建 {CARD_TYPE_LABELS[cardType]} 牌组
@@ -551,7 +547,9 @@ export function CardForm() {
                   </button>
                 </div>
                 <p className="mt-2 text-xs text-sumi-muted">
-                  也可直接填写名称后点「创建」闪卡，将一并新建牌组。
+                  {isEdit
+                    ? '也可直接填写名称后点「保存」，将一并新建牌组并移入该牌组。'
+                    : '也可直接填写名称后点「创建」闪卡，将一并新建牌组。'}
                 </p>
               </div>
             )}
@@ -644,7 +642,7 @@ export function CardForm() {
             disabled={!isEdit && !canSubmitNew}
             className="rounded-xl bg-indigo-ja-dark py-3 text-white hover:bg-indigo-ja disabled:opacity-50"
           >
-            {isEdit ? '保存' : creatingDeck ? '处理中…' : '创建'}
+            {creatingDeck ? '处理中…' : isEdit ? '保存' : '创建'}
           </button>
         </form>
 
